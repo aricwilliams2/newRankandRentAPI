@@ -1,13 +1,22 @@
 class SeoController {
-  constructor() {
-    this.rapidApiKey = process.env.RAPIDAPI_KEY;
-    this.rapidApiHost = process.env.RAPIDAPI_HOST;
-    this.baseUrl = `https://${this.rapidApiHost}`;
-    this.backlinksApiHost = process.env.RAPIDAPI_BACKLINKS_HOST;
-    this.backlinksBaseUrl = `https://${this.backlinksApiHost}`;
-    this.rankCheckerApiHost = process.env.RAPIDAPI_RANK_CHECKER_HOST;
-    this.rankCheckerBaseUrl = `https://${this.rankCheckerApiHost}`;
-  }
+ constructor() {
+  this.rapidApiKey = process.env.RAPIDAPI_KEY;
+  this.rapidApiHost = process.env.RAPIDAPI_HOST;
+  this.baseUrl = `https://${this.rapidApiHost}`;
+  this.backlinksApiHost = process.env.RAPIDAPI_BACKLINKS_HOST;
+  this.backlinksBaseUrl = `https://${this.backlinksApiHost}`;
+  this.rankCheckerApiHost = process.env.RAPIDAPI_RANK_CHECKER_HOST;
+  this.rankCheckerBaseUrl = `https://${this.rankCheckerApiHost}`;
+
+  // 🔥 Bind class methods to preserve `this`
+  this.getUrlMetrics = this.getUrlMetrics.bind(this);
+  this.getKeywordMetrics = this.getKeywordMetrics.bind(this);
+  this.getKeywordIdeas = this.getKeywordIdeas.bind(this);
+  this.healthCheck = this.healthCheck.bind(this);
+  this.getDomainBacklinks = this.getDomainBacklinks.bind(this);
+  this.getDomainKeywords = this.getDomainKeywords.bind(this);
+  this.checkGoogleRank = this.checkGoogleRank.bind(this);
+}
 
   /**
    * Get URL metrics from RapidAPI
