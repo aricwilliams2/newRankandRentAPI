@@ -4,6 +4,7 @@ require('dotenv').config();
 
 const leadRoutes = require('./routes/leadRoutes');
 const seoRoutes = require('./routes/seoRoutes');
+const clientRoutes = require('./routes/clientRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,6 +22,7 @@ app.get('/api/test', (req, res) => {
 // API routes
 app.use('/api', leadRoutes);
 app.use('/api', seoRoutes);
+app.use('/api', clientRoutes);
 
 // API endpoints documentation
 app.get('/api/endpoints', (req, res) => {
@@ -69,6 +71,35 @@ app.get('/api/endpoints', (req, res) => {
       method: 'DELETE',
       path: '/api/leads/:id',
       description: 'Delete a lead'
+    },
+    
+    // Client management endpoints
+    {
+      method: 'GET',
+      path: '/api/clients',
+      description: 'Get all clients with filtering, searching, and pagination',
+      parameters: 'status, search, sort_by, sort_dir, page, per_page'
+    },
+    {
+      method: 'GET',
+      path: '/api/clients/:id',
+      description: 'Get a specific client by ID'
+    },
+    {
+      method: 'POST',
+      path: '/api/clients',
+      description: 'Create a new client',
+      required_fields: 'website, email'
+    },
+    {
+      method: 'PUT',
+      path: '/api/clients/:id',
+      description: 'Update an existing client'
+    },
+    {
+      method: 'DELETE',
+      path: '/api/clients/:id',
+      description: 'Delete a client'
     },
     
     // SEO & Keyword Research endpoints

@@ -56,6 +56,14 @@ npm run dev
 - `PUT /api/leads/:id` - Update a lead
 - `DELETE /api/leads/:id` - Delete a lead
 
+### Clients
+
+- `GET /api/clients` - Get all clients with filtering, searching, and pagination
+- `GET /api/clients/:id` - Get a specific client
+- `POST /api/clients` - Create a new client
+- `PUT /api/clients/:id` - Update a client
+- `DELETE /api/clients/:id` - Delete a client
+
 ### SEO API Query Parameters
 
 #### URL Metrics
@@ -168,6 +176,38 @@ Content-Type: application/json
 }
 ```
 
+#### Get clients with filtering:
+```bash
+GET /api/clients?status=active&search=example.com&page=1&per_page=10
+```
+
+#### Create a new client:
+```bash
+POST /api/clients
+Content-Type: application/json
+
+{
+  "website": "https://example.com",
+  "email": "contact@example.com",
+  "phone": "123-456-7890",
+  "status": "new",
+  "revenue": 5000,
+  "note": "Potential high-value client"
+}
+```
+
+#### Update a client:
+```bash
+PUT /api/clients/client-uuid-here
+Content-Type: application/json
+
+{
+  "status": "active",
+  "revenue": 10000,
+  "note": "Contract signed, monthly retainer"
+}
+```
+
 ## Environment Variables
 
 Copy the `.env` file and configure:
@@ -197,5 +237,17 @@ The leads table includes:
 - `website`
 - `contacted` (boolean)
 - `city`
+- `created_at`
+- `updated_at`
+
+The clients table includes:
+- `id` (UUID primary key)
+- `website` (required, unique URL)
+- `phone`
+- `email` (required, unique)
+- `status` (new, active, inactive, suspended)
+- `revenue` (decimal)
+- `history` (text)
+- `note` (text)
 - `created_at`
 - `updated_at`

@@ -93,9 +93,53 @@ const leadValidationSchema = {
   })
 };
 
+const clientValidationSchema = {
+  store: Joi.object({
+    website: Joi.string().uri().max(255).required(),
+    phone: Joi.string().max(20).allow(null, ''),
+    email: Joi.string().email().max(255).required(),
+    status: Joi.string().valid('new', 'active', 'inactive', 'suspended').default('new'),
+    revenue: Joi.number().min(0).default(0),
+    history: Joi.string().allow(null, ''),
+    note: Joi.string().allow(null, '')
+  }),
+  
+  update: Joi.object({
+    website: Joi.string().uri().max(255),
+    phone: Joi.string().max(20).allow(null, ''),
+    email: Joi.string().email().max(255),
+    status: Joi.string().valid('new', 'active', 'inactive', 'suspended'),
+    revenue: Joi.number().min(0),
+    history: Joi.string().allow(null, ''),
+    note: Joi.string().allow(null, '')
+  })
+};
+
 const validateLead = (type) => {
   return (req, res, next) => {
     const schema = leadValidationSchema[type];
+    const { error, value } = schema.validate(req.body);
+    
+    if (error) {
+      const errors = error.details.reduce((acc, detail) => {
+        acc[detail.context.key] = [detail.message];
+        return acc;
+      }, {});
+      
+      return res.status(422).json({
+        message: 'The given data was invalid.',
+        errors: errors
+      });
+    }
+    
+    req.validatedData = value;
+    next();
+  };
+};
+
+const validateClient = (type) => {
+  return (req, res, next) => {
+    const schema = clientValidationSchema[type];
     const { error, value } = schema.validate(req.body);
     
     if (error) {
@@ -161,6 +205,7 @@ const validateBacklinkRequest = (type) => {
 
 module.exports = {
   validateLead,
+  validateClient,
   validateSeoRequest,
   validateBacklinkRequest
 };
