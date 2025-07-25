@@ -46,7 +46,6 @@ npm run dev
 - `POST /api/domain-backlinks` - Get backlinks for a domain
 - `POST /api/domain-keywords` - Get ranking keywords for a domain
 - `POST /api/google-rank-check` - Check Google ranking for a URL and keyword
-- `POST /api/google-search` - Search Google and get organic results
 - `GET /api/seo-health` - Check RapidAPI connectivity status
 
 ### Leads
@@ -223,6 +222,7 @@ Copy the `.env` file and configure:
 - `RAPIDAPI_HOST` - RapidAPI host (seo-traffic-authority.p.rapidapi.com)
 - `RAPIDAPI_BACKLINKS_HOST` - RapidAPI host for backlinks (backlinks-and-keywords-fetcher.p.rapidapi.com)
 - `RAPIDAPI_RANK_CHECKER_HOST` - RapidAPI host for rank checking (google-rank-checker-by-keyword.p.rapidapi.com)
+- `RAPIDAPI_GOOGLE_SEARCH_HOST` - RapidAPI host for Google search (google-search122.p.rapidapi.com)
 
 ## Database Schema
 
