@@ -46,6 +46,7 @@ npm run dev
 - `POST /api/domain-backlinks` - Get backlinks for a domain
 - `POST /api/domain-keywords` - Get ranking keywords for a domain
 - `POST /api/google-rank-check` - Check Google ranking for a URL and keyword
+- `POST /api/google-search` - Search Google and get organic results
 - `GET /api/seo-health` - Check RapidAPI connectivity status
 
 ### Leads

@@ -7,6 +7,8 @@ class SeoController {
   this.backlinksBaseUrl = `https://${this.backlinksApiHost}`;
   this.rankCheckerApiHost = process.env.RAPIDAPI_RANK_CHECKER_HOST;
   this.rankCheckerBaseUrl = `https://${this.rankCheckerApiHost}`;
+  this.googleSearchApiHost = process.env.RAPIDAPI_GOOGLE_SEARCH_HOST;
+  this.googleSearchBaseUrl = `https://${this.googleSearchApiHost}`;
 
   // 🔥 Bind class methods to preserve `this`
   this.getUrlMetrics = this.getUrlMetrics.bind(this);
@@ -16,6 +18,7 @@ class SeoController {
   this.getDomainBacklinks = this.getDomainBacklinks.bind(this);
   this.getDomainKeywords = this.getDomainKeywords.bind(this);
   this.checkGoogleRank = this.checkGoogleRank.bind(this);
+  this.searchGoogle = this.searchGoogle.bind(this);
 }
 
   /**
@@ -293,6 +296,48 @@ class SeoController {
       console.error('Error checking Google rank:', error);
       res.status(500).json({ 
         error: 'Failed to check Google rank',
+        message: error.message 
+      });
+    }
+  }
+
+  /**
+   * Search Google and get organic results
+   */
+  async searchGoogle(req, res) {
+    try {
+      const { query, language = 'en', country = 'us' } = req.validatedBody;
+      
+      const apiUrl = this.googleSearchBaseUrl;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.googleSearchApiHost,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          actor: 'scraper.google.search',
+          input: {
+            q: query,
+            hl: language,
+            gl: country
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      res.json(data);
+    } catch (error) {
+      console.error('Error searching Google:', error);
+      res.status(500).json({ 
+        error: 'Failed to search Google',
         message: error.message 
       });
     }

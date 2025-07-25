@@ -143,6 +143,13 @@ app.get('/api/endpoints', (req, res) => {
       optional_parameters: 'country (default: us), id (default: google-serp)'
     },
     {
+      method: 'POST',
+      path: '/api/google-search',
+      description: 'Search Google and get organic results with related searches',
+      required_body: 'query',
+      optional_body: 'language (default: en), country (default: us)'
+    },
+    {
       method: 'GET',
       path: '/api/seo-health',
       description: 'Check RapidAPI connectivity status'
