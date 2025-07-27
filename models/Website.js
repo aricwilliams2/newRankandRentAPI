@@ -74,14 +74,13 @@ class Website {
             seo_last_updated = ?, updated_at = ?
           WHERE id = ?
         `;
-        const params = [
-          this.domain, this.niche, this.status, this.monthly_revenue,
-          this.domain_authority, this.backlinks, this.organic_keywords,
-          this.organic_traffic, 
-          this.top_keywords ? JSON.stringify(this.top_keywords) : null,
-          this.competitors ? JSON.stringify(this.competitors) : null,
-          this.seo_last_updated, this.updated_at, this.id
-        ];
+    const params = [
+  this.domain, this.niche, this.status, this.monthly_revenue,
+  this.domain_authority, this.backlinks, this.organic_keywords,
+  this.organic_traffic, topKeywords, competitors,
+  seoLastUpdated, this.updated_at, this.id
+];
+
         await db.query(sql, params);
         return this;
       }
