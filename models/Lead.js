@@ -89,10 +89,11 @@ class Lead {
       this.created_at = now;
       this.updated_at = now;
       const sql = `
-        INSERT INTO leads (
-          id, name, email, phone, company, status, notes, reviews, 
-          website, contacted, city, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     INSERT INTO leads (
+  name, email, phone, company, status, notes, reviews, 
+  website, contacted, city, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
       `;
       const params = [
         this.id, this.name, this.email, this.phone, this.company, this.status,
