@@ -35,10 +35,17 @@ class Client {
 
     sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
 
+    // ✅ Add pagination support with defaults
+    const limit = parseInt(filters.limit) || 50;
+    const offset = parseInt(filters.offset) || 0;
+
+    sql += ' LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
     const results = await db.query(sql, params);
     return {
       data: results.map(row => new Client(row)),
-      pagination: null,
+      pagination: { limit, offset },
     };
   }
 
@@ -52,7 +59,6 @@ class Client {
     const now = new Date();
 
     if (this.id) {
-      // Check for existing record
       const existing = await db.query('SELECT id FROM clients WHERE id = ?', [this.id]);
       if (existing.length > 0) {
         this.updated_at = now;
@@ -71,7 +77,6 @@ class Client {
       }
     }
 
-    // Insert new record
     this.created_at = now;
     this.updated_at = now;
     const sql = `
