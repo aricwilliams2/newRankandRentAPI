@@ -1,16 +1,17 @@
 const db = require('../config/database');
-const { v4: uuidv4 } = require('uuid');
 
 class Client {
   constructor(data = {}) {
-    this.id = data.id || uuidv4();
-    this.website = data.website;
-    this.phone = data.phone;
+    this.id = data.id; // auto-incremented in DB
+    this.name = data.name;
     this.email = data.email;
-    this.status = data.status || 'new';
-    this.revenue = data.revenue || 0;
-    this.history = data.history;
-    this.note = data.note;
+    this.phone = data.phone;
+    this.city = data.city;
+    this.reviews = data.reviews || 0;
+    this.website = data.website;
+    this.contacted = data.contacted || false;
+    this.follow_up_at = data.follow_up_at;
+    this.notes = data.notes;
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
   }
@@ -18,119 +19,74 @@ class Client {
   static async findAll(filters = {}) {
     let sql = 'SELECT * FROM clients WHERE 1=1';
     const params = [];
-    
-    // Apply filters
-    if (filters.status) {
-      sql += ' AND status = ?';
-      params.push(filters.status);
-    }
-    
+
     if (filters.search) {
-      sql += ' AND (website LIKE ? OR email LIKE ? OR note LIKE ?)';
-      const searchTerm = `%${filters.search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
-    }
-    
-    // Apply sorting
-    const allowedSorts = ['created_at', 'website', 'email', 'status', 'revenue'];
-    let sortBy = filters.sort_by;
-    if (!allowedSorts.includes(sortBy)) {
-      sortBy = 'created_at';
+      sql += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
+      const s = `%${filters.search}%`;
+      params.push(s, s, s);
     }
 
+    const allowedSorts = ['created_at', 'name', 'email', 'city'];
+    let sortBy = filters.sort_by;
+    if (!allowedSorts.includes(sortBy)) sortBy = 'created_at';
+
     let sortDir = filters.sort_dir?.toLowerCase();
-    if (!['asc', 'desc'].includes(sortDir)) {
-      sortDir = 'desc';
-    }
+    if (!['asc', 'desc'].includes(sortDir)) sortDir = 'desc';
+
     sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
-    
-    // Apply pagination
-    const page = parseInt(filters.page) || 1;
-    const perPage = parseInt(filters.per_page) || 15;
-    const offset = (page - 1) * perPage;
-    
-    sql += ' LIMIT ? OFFSET ?';
-    params.push(perPage, offset);
-    
-    const clients = await db.query(sql, params);
-    
-    // Get total count for pagination
-    let countSql = 'SELECT COUNT(*) as total FROM clients WHERE 1=1';
-    const countParams = [];
-    
-    if (filters.status) {
-      countSql += ' AND status = ?';
-      countParams.push(filters.status);
-    }
-    
-    if (filters.search) {
-      countSql += ' AND (website LIKE ? OR email LIKE ? OR note LIKE ?)';
-      const searchTerm = `%${filters.search}%`;
-      countParams.push(searchTerm, searchTerm, searchTerm);
-    }
-    
-    const countResult = await db.query(countSql, countParams);
-    const total = countResult[0].total;
-    
+
+    const results = await db.query(sql, params);
     return {
-      data: clients.map(client => new Client(client)),
-      pagination: {
-        current_page: page,
-        per_page: perPage,
-        total: total,
-        last_page: Math.ceil(total / perPage),
-        from: offset + 1,
-        to: Math.min(offset + perPage, total)
-      }
+      data: results.map(row => new Client(row)),
+      pagination: null,
     };
   }
 
   static async findById(id) {
     const sql = 'SELECT * FROM clients WHERE id = ?';
     const results = await db.query(sql, [id]);
-    
-    if (results.length === 0) {
-      return null;
-    }
-    
-    return new Client(results[0]);
+    return results.length ? new Client(results[0]) : null;
   }
 
   async save() {
     const now = new Date();
-    
-    if (this.created_at) {
-      // Update existing client
-      this.updated_at = now;
-      const sql = `
-        UPDATE clients SET 
-          website = ?, phone = ?, email = ?, status = ?, 
-          revenue = ?, history = ?, note = ?, updated_at = ?
-        WHERE id = ?
-      `;
-      const params = [
-        this.website, this.phone, this.email, this.status,
-        this.revenue, this.history, this.note, this.updated_at, this.id
-      ];
-      
-      await db.query(sql, params);
-    } else {
-      // Create new client
-      this.created_at = now;
-      this.updated_at = now;
-      const sql = `
-        INSERT INTO clients (
-          id, website, phone, email, status, revenue, history, note, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      const params = [
-        this.id, this.website, this.phone, this.email, this.status,
-        this.revenue, this.history, this.note, this.created_at, this.updated_at
-      ];
-      
-      await db.query(sql, params);
+
+    if (this.id) {
+      // Check for existing record
+      const existing = await db.query('SELECT id FROM clients WHERE id = ?', [this.id]);
+      if (existing.length > 0) {
+        this.updated_at = now;
+        const sql = `
+          UPDATE clients SET
+            name = ?, email = ?, phone = ?, city = ?, reviews = ?, website = ?,
+            contacted = ?, follow_up_at = ?, notes = ?, updated_at = ?
+          WHERE id = ?
+        `;
+        const params = [
+          this.name, this.email, this.phone, this.city, this.reviews, this.website,
+          this.contacted, this.follow_up_at, this.notes, this.updated_at, this.id
+        ];
+        await db.query(sql, params);
+        return this;
+      }
     }
-    
+
+    // Insert new record
+    this.created_at = now;
+    this.updated_at = now;
+    const sql = `
+      INSERT INTO clients (
+        name, email, phone, city, reviews, website,
+        contacted, follow_up_at, notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const params = [
+      this.name, this.email, this.phone, this.city, this.reviews, this.website,
+      this.contacted, this.follow_up_at, this.notes, this.created_at, this.updated_at
+    ];
+    const result = await db.query(sql, params);
+    this.id = result.insertId;
+
     return this;
   }
 
@@ -146,12 +102,11 @@ class Client {
   }
 
   async update(data) {
-    Object.keys(data).forEach(key => {
+    for (const key of Object.keys(data)) {
       if (this.hasOwnProperty(key) && key !== 'id' && key !== 'created_at') {
         this[key] = data[key];
       }
-    });
-    
+    }
     return await this.save();
   }
 }
