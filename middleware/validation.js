@@ -96,7 +96,7 @@ const leadValidationSchema = {
 const clientValidationSchema = {
   store: Joi.object({
     name: Joi.string().max(255).required(),
-    email: Joi.string().email().max(255).required(),
+email: Joi.string().email().max(255).allow('', null),
     phone: Joi.string().max(20).allow(null, ''),
     website: Joi.string().uri().max(255).required(),
     city: Joi.string().max(255).allow(null, ''),
