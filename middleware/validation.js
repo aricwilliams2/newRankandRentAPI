@@ -95,25 +95,30 @@ const leadValidationSchema = {
 
 const clientValidationSchema = {
   store: Joi.object({
-    website: Joi.string().uri().max(255).required(),
-    phone: Joi.string().max(20).allow(null, ''),
+    name: Joi.string().max(255).required(),
     email: Joi.string().email().max(255).required(),
-    status: Joi.string().valid('new', 'active', 'inactive', 'suspended').default('new'),
-    revenue: Joi.number().min(0).default(0),
-    history: Joi.string().allow(null, ''),
-    note: Joi.string().allow(null, '')
-  }),
-  
-  update: Joi.object({
-    website: Joi.string().uri().max(255),
     phone: Joi.string().max(20).allow(null, ''),
-    email: Joi.string().email().max(255),
-    status: Joi.string().valid('new', 'active', 'inactive', 'suspended'),
-    revenue: Joi.number().min(0),
-    history: Joi.string().allow(null, ''),
-    note: Joi.string().allow(null, '')
+    website: Joi.string().uri().max(255).required(),
+    city: Joi.string().max(255).allow(null, ''),
+    reviews: Joi.number().integer().min(0).default(0),
+    contacted: Joi.boolean().default(false),
+    follow_up_at: Joi.date().allow(null),
+    notes: Joi.string().allow(null, '')
+  }),
+
+  update: Joi.object({
+    name: Joi.string().max(255),
+    email: Joi.string().email().max(255).allow(null, ''),
+    phone: Joi.string().max(20).allow(null, ''),
+    website: Joi.string().uri().max(255),
+    city: Joi.string().max(255).allow(null, ''),
+    reviews: Joi.number().integer().min(0),
+    contacted: Joi.boolean(),
+    follow_up_at: Joi.date().allow(null),
+    notes: Joi.string().allow(null, '')
   })
 };
+
 
 const validateLead = (type) => {
   return (req, res, next) => {
