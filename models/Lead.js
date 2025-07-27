@@ -2,7 +2,7 @@ const db = require('../config/database');
 
 class Lead {
   constructor(data = {}) {
-    this.id = data.id; // ← keep this to store it when reading from DB
+    this.id = data.id; // only used for existing rows
     this.name = data.name;
     this.email = data.email;
     this.phone = data.phone;
@@ -57,41 +57,45 @@ class Lead {
   async save() {
     const now = new Date();
 
-    if (this.created_at) {
-      // Update existing
-      this.updated_at = now;
-      const sql = `
-        UPDATE leads SET 
-          name = ?, email = ?, phone = ?, company = ?, status = ?, 
-          notes = ?, reviews = ?, website = ?, contacted = ?, city = ?, 
-          updated_at = ?
-        WHERE id = ?
-      `;
-      const params = [
-        this.name, this.email, this.phone, this.company, this.status,
-        this.notes, this.reviews, this.website, this.contacted, this.city,
-        this.updated_at, this.id
-      ];
-      await db.query(sql, params);
-    } else {
-      // Insert new
-      this.created_at = now;
-      this.updated_at = now;
-      const sql = `
-        INSERT INTO leads (
-          name, email, phone, company, status, notes, reviews,
-          website, contacted, city, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      const params = [
-        this.name, this.email, this.phone, this.company, this.status,
-        this.notes, this.reviews, this.website, this.contacted, this.city,
-        this.created_at, this.updated_at
-      ];
-      const result = await db.query(sql, params);
-      this.id = result.insertId; // save new auto id
+    if (this.id) {
+      // Check if row exists
+      const existing = await db.query('SELECT id FROM leads WHERE id = ?', [this.id]);
+      if (existing.length > 0) {
+        // Do update
+        this.updated_at = now;
+        const sql = `
+          UPDATE leads SET 
+            name = ?, email = ?, phone = ?, company = ?, status = ?, 
+            notes = ?, reviews = ?, website = ?, contacted = ?, city = ?, 
+            updated_at = ?
+          WHERE id = ?
+        `;
+        const params = [
+          this.name, this.email, this.phone, this.company, this.status,
+          this.notes, this.reviews, this.website, this.contacted, this.city,
+          this.updated_at, this.id
+        ];
+        await db.query(sql, params);
+        return this;
+      }
     }
 
+    // Do insert
+    this.created_at = now;
+    this.updated_at = now;
+    const sql = `
+      INSERT INTO leads (
+        name, email, phone, company, status, notes, reviews,
+        website, contacted, city, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const params = [
+      this.name, this.email, this.phone, this.company, this.status,
+      this.notes, this.reviews, this.website, this.contacted, this.city,
+      this.created_at, this.updated_at
+    ];
+    const result = await db.query(sql, params);
+    this.id = result.insertId;
     return this;
   }
 
