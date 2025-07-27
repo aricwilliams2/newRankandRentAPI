@@ -50,12 +50,17 @@ if (!['asc', 'desc'].includes(sortDir)) {
 sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
     
     // Apply pagination
-    const page = parseInt(filters.page) || 1;
-    const perPage = parseInt(filters.per_page) || 15;
-    const offset = (page - 1) * perPage;
-    
-    sql += ' LIMIT ? OFFSET ?';
-    params.push(perPage, offset);
+let page = parseInt(filters.page);
+let perPage = parseInt(filters.per_page);
+
+if (isNaN(page) || page < 1) page = 1;
+if (isNaN(perPage) || perPage < 1) perPage = 15;
+
+const offset = (page - 1) * perPage;
+
+sql += ' LIMIT ? OFFSET ?';
+params.push(perPage, offset);
+
     
     const leads = await db.query(sql, params);
     
