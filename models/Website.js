@@ -58,6 +58,10 @@ class Website {
   async save() {
     const now = new Date();
 
+     const topKeywords = this.top_keywords !== undefined ? JSON.stringify(this.top_keywords) : null;
+  const competitors = this.competitors !== undefined ? JSON.stringify(this.competitors) : null;
+  const seoLastUpdated = this.seo_last_updated !== undefined ? this.seo_last_updated : null;
+    
     if (this.id) {
       const existing = await db.query('SELECT id FROM websites WHERE id = ?', [this.id]);
       if (existing.length > 0) {
