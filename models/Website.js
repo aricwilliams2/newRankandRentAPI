@@ -58,10 +58,10 @@ class Website {
   async save() {
     const now = new Date();
 
-     const topKeywords = this.top_keywords !== undefined ? JSON.stringify(this.top_keywords) : null;
-  const competitors = this.competitors !== undefined ? JSON.stringify(this.competitors) : null;
-  const seoLastUpdated = this.seo_last_updated !== undefined ? this.seo_last_updated : null;
-    
+    const topKeywords = this.top_keywords !== undefined ? JSON.stringify(this.top_keywords) : null;
+    const competitors = this.competitors !== undefined ? JSON.stringify(this.competitors) : null;
+    const seoLastUpdated = this.seo_last_updated !== undefined ? this.seo_last_updated : null;
+
     if (this.id) {
       const existing = await db.query('SELECT id FROM websites WHERE id = ?', [this.id]);
       if (existing.length > 0) {
@@ -74,13 +74,12 @@ class Website {
             seo_last_updated = ?, updated_at = ?
           WHERE id = ?
         `;
-    const params = [
-  this.domain, this.niche, this.status, this.monthly_revenue,
-  this.domain_authority, this.backlinks, this.organic_keywords,
-  this.organic_traffic, topKeywords, competitors,
-  seoLastUpdated, this.updated_at, this.id
-];
-
+        const params = [
+          this.domain, this.niche, this.status, this.monthly_revenue,
+          this.domain_authority, this.backlinks, this.organic_keywords,
+          this.organic_traffic, topKeywords, competitors,
+          seoLastUpdated, this.updated_at, this.id
+        ];
         await db.query(sql, params);
         return this;
       }
@@ -98,10 +97,8 @@ class Website {
     const params = [
       this.domain, this.niche, this.status, this.monthly_revenue,
       this.domain_authority, this.backlinks, this.organic_keywords,
-      this.organic_traffic,
-      this.top_keywords ? JSON.stringify(this.top_keywords) : null,
-      this.competitors ? JSON.stringify(this.competitors) : null,
-      this.seo_last_updated, this.created_at, this.updated_at
+      this.organic_traffic, topKeywords, competitors,
+      seoLastUpdated, this.created_at, this.updated_at
     ];
     const result = await db.query(sql, params);
     this.id = result.insertId;
@@ -128,7 +125,6 @@ class Website {
     return await this.save();
   }
 
-  // Get dashboard statistics
   static async getStats() {
     const [
       totalRevenue,
