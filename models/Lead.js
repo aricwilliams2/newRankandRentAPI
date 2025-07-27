@@ -88,7 +88,7 @@ class Lead {
         this.notes, this.reviews, this.website, this.contacted, this.city,
         this.created_at, this.updated_at
       ];
-      const [result] = await db.query(sql, params);
+      const result = await db.query(sql, params);
       this.id = result.insertId; // save new auto id
     }
 
