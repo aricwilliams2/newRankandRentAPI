@@ -6,7 +6,7 @@ class Database {
     this.pool = mysql.createPool({
       host: process.env.DB_HOST,
       port: process.env.DB_PORT,
-      user: process.env.DB_USERNAME,
+      user: process.env.DB_USERNAME,  // ✅ make sure .env uses DB_USERNAME
       password: process.env.DB_PASSWORD,
       database: process.env.DB_DATABASE,
       waitForConnections: true,
@@ -26,7 +26,12 @@ class Database {
   }
 
   async getConnection() {
-    return await this.pool.getConnection();
+    try {
+      return await this.pool.getConnection();
+    } catch (error) {
+      console.error('Failed to get DB connection:', error);
+      throw error;
+    }
   }
 }
 
