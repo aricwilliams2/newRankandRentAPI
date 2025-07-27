@@ -1,9 +1,8 @@
 const db = require('../config/database');
-const { v4: uuidv4 } = require('uuid');
 
 class Lead {
   constructor(data = {}) {
-    this.id = data.id || uuidv4();
+    this.id = data.id; // ← keep this to store it when reading from DB
     this.name = data.name;
     this.email = data.email;
     this.phone = data.phone;
@@ -18,12 +17,10 @@ class Lead {
     this.updated_at = data.updated_at;
   }
 
-  // ✅ SIMPLIFIED: Fetch all leads (no pagination)
   static async findAll(filters = {}) {
     let sql = 'SELECT * FROM leads WHERE 1=1';
     const params = [];
 
-    // Optional filters
     if (filters.status) {
       sql += ' AND status = ?';
       params.push(filters.status);
@@ -35,7 +32,6 @@ class Lead {
       params.push(searchTerm, searchTerm, searchTerm);
     }
 
-    // Sorting
     const allowedSorts = ['created_at', 'name', 'email', 'company'];
     let sortBy = filters.sort_by;
     if (!allowedSorts.includes(sortBy)) sortBy = 'created_at';
@@ -46,29 +42,23 @@ class Lead {
     sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
 
     const results = await db.query(sql, params);
-
     return {
-      data: results.map(lead => new Lead(lead)),
-      pagination: null, // Not needed here
+      data: results.map(row => new Lead(row)),
+      pagination: null,
     };
   }
 
   static async findById(id) {
     const sql = 'SELECT * FROM leads WHERE id = ?';
     const results = await db.query(sql, [id]);
-
-    if (results.length === 0) {
-      return null;
-    }
-
-    return new Lead(results[0]);
+    return results.length ? new Lead(results[0]) : null;
   }
 
   async save() {
     const now = new Date();
 
     if (this.created_at) {
-      // Update existing lead
+      // Update existing
       this.updated_at = now;
       const sql = `
         UPDATE leads SET 
@@ -82,26 +72,24 @@ class Lead {
         this.notes, this.reviews, this.website, this.contacted, this.city,
         this.updated_at, this.id
       ];
-
       await db.query(sql, params);
     } else {
-      // Create new lead
+      // Insert new
       this.created_at = now;
       this.updated_at = now;
       const sql = `
-     INSERT INTO leads (
-  name, email, phone, company, status, notes, reviews, 
-  website, contacted, city, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-
+        INSERT INTO leads (
+          name, email, phone, company, status, notes, reviews,
+          website, contacted, city, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       const params = [
-        this.id, this.name, this.email, this.phone, this.company, this.status,
+        this.name, this.email, this.phone, this.company, this.status,
         this.notes, this.reviews, this.website, this.contacted, this.city,
         this.created_at, this.updated_at
       ];
-
-      await db.query(sql, params);
+      const [result] = await db.query(sql, params);
+      this.id = result.insertId; // save new auto id
     }
 
     return this;
@@ -119,12 +107,11 @@ class Lead {
   }
 
   async update(data) {
-    Object.keys(data).forEach(key => {
+    for (const key of Object.keys(data)) {
       if (this.hasOwnProperty(key) && key !== 'id' && key !== 'created_at') {
         this[key] = data[key];
       }
-    });
-
+    }
     return await this.save();
   }
 }
