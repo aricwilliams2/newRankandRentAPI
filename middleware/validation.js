@@ -100,7 +100,7 @@ email: Joi.string().email().max(255).allow('', null),
     phone: Joi.string().max(20).allow(null, ''),
     website: Joi.string().uri().max(255).required(),
     city: Joi.string().max(255).allow(null, ''),
-    reviews: Joi.number().integer().min(0).default(0),
+reviews: Joi.number().allow(null)
     contacted: Joi.boolean().default(false),
     follow_up_at: Joi.date().allow(null),
     notes: Joi.string().allow(null, '')
@@ -112,7 +112,7 @@ email: Joi.string().email().max(255).allow('', null),
     phone: Joi.string().max(20).allow(null, ''),
     website: Joi.string().uri().max(255),
     city: Joi.string().max(255).allow(null, ''),
-    reviews: Joi.number().integer().min(0),
+reviews: Joi.number().allow(null)
     contacted: Joi.boolean(),
     follow_up_at: Joi.date().allow(null),
     notes: Joi.string().allow(null, '')
