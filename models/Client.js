@@ -16,39 +16,34 @@ class Client {
     this.updated_at = data.updated_at;
   }
 
-  static async findAll(filters = {}) {
-    let sql = 'SELECT * FROM clients WHERE 1=1';
-    const params = [];
+static async findAll(filters = {}) {
+  let sql = 'SELECT * FROM clients WHERE 1=1';
+  const params = [];
 
-    if (filters.search) {
-      sql += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
-      const s = `%${filters.search}%`;
-      params.push(s, s, s);
-    }
-
-    const allowedSorts = ['created_at', 'name', 'email', 'city'];
-    let sortBy = filters.sort_by;
-    if (!allowedSorts.includes(sortBy)) sortBy = 'created_at';
-
-    let sortDir = filters.sort_dir?.toLowerCase();
-    if (!['asc', 'desc'].includes(sortDir)) sortDir = 'desc';
-
-    sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
-
-    // ✅ Add pagination support with defaults
-    const limit = parseInt(filters.limit) || 50;
-    const offset = parseInt(filters.offset) || 0;
-
-    sql += ' LIMIT ? OFFSET ?';
-    params.push(limit, offset);
-
-    const results = await db.query(sql, params);
-    return {
-      data: results.map(row => new Client(row)),
-      pagination: { limit, offset },
-    };
+  if (filters.search) {
+    sql += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
+    const s = `%${filters.search}%`;
+    params.push(s, s, s);
   }
 
+  const allowedSorts = ['created_at', 'name', 'email', 'city'];
+  let sortBy = filters.sort_by;
+  if (!allowedSorts.includes(sortBy)) sortBy = 'created_at';
+
+  let sortDir = filters.sort_dir?.toLowerCase();
+  if (!['asc', 'desc'].includes(sortDir)) sortDir = 'desc';
+
+  sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
+
+  const results = await db.query(sql, params);
+  return {
+    data: results.map(row => new Client(row)),
+    pagination: null,
+  };
+}
+
+
+  
   static async findById(id) {
     const sql = 'SELECT * FROM clients WHERE id = ?';
     const results = await db.query(sql, [id]);
