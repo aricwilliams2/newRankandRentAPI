@@ -86,7 +86,7 @@ const leadValidationSchema = {
     company: Joi.string().max(255).allow(null, ''),
     status: Joi.string().valid('New', 'Contacted', 'Qualified', 'Converted', 'Lost'),
     notes: Joi.string().allow(null, ''),
-    reviews: Joi.number().integer().allow(null),
+reviews: Joi.number().allow(null)
     website: Joi.string().uri().max(255).allow(null, ''),
     contacted: Joi.boolean(),
     city: Joi.string().max(255).allow(null, '')
