@@ -64,6 +64,27 @@ npm run dev
 - `PUT /api/clients/:id` - Update a client
 - `DELETE /api/clients/:id` - Delete a client
 
+### Dashboard
+
+- `GET /api/dashboard/stats` - Get dashboard statistics (revenue, websites, leads, clients, phones)
+- `GET /api/dashboard/activity` - Get recent activity feed
+
+### Websites
+
+- `GET /api/websites` - Get all websites with filtering, searching, and pagination
+- `GET /api/websites/:id` - Get a specific website
+- `POST /api/websites` - Create a new website
+- `PUT /api/websites/:id` - Update a website
+- `DELETE /api/websites/:id` - Delete a website
+
+### Tasks
+
+- `GET /api/tasks` - Get all tasks with filtering, searching, and pagination
+- `GET /api/tasks/:id` - Get a specific task
+- `POST /api/tasks` - Create a new task
+- `PUT /api/tasks/:id` - Update a task
+- `DELETE /api/tasks/:id` - Delete a task
+
 ### SEO API Query Parameters
 
 #### URL Metrics
@@ -208,6 +229,44 @@ Content-Type: application/json
 }
 ```
 
+#### Get dashboard statistics:
+```bash
+GET /api/dashboard/stats
+```
+
+#### Get recent activity:
+```bash
+GET /api/dashboard/activity?limit=5
+```
+
+#### Create a new website:
+```bash
+POST /api/websites
+Content-Type: application/json
+
+{
+  "domain": "example.com",
+  "niche": "Plumbing",
+  "monthly_revenue": 2500,
+  "domain_authority": 35
+}
+```
+
+#### Create a new task:
+```bash
+POST /api/tasks
+Content-Type: application/json
+
+{
+  "title": "Optimize meta descriptions",
+  "description": "Update meta descriptions for all service pages",
+  "website_id": "website-uuid-here",
+  "priority": "high",
+  "assignee": "John Doe",
+  "due_date": "2024-03-25"
+}
+```
+
 ## Environment Variables
 
 Copy the `.env` file and configure:
@@ -238,6 +297,34 @@ The leads table includes:
 - `website`
 - `contacted` (boolean)
 - `city`
+- `created_at`
+- `updated_at`
+
+The websites table includes:
+- `id` (UUID primary key)
+- `domain` (required, unique)
+- `niche`
+- `status` (active, inactive, suspended)
+- `monthly_revenue` (decimal)
+- `domain_authority`
+- `backlinks`
+- `organic_keywords`
+- `organic_traffic`
+- `top_keywords` (JSON)
+- `competitors` (JSON)
+- `seo_last_updated`
+- `created_at`
+- `updated_at`
+
+The tasks table includes:
+- `id` (UUID primary key)
+- `website_id` (foreign key)
+- `title` (required)
+- `description`
+- `status` (todo, in_progress, completed)
+- `priority` (low, medium, high)
+- `assignee`
+- `due_date`
 - `created_at`
 - `updated_at`
 

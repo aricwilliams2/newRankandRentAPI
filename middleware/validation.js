@@ -230,10 +230,108 @@ const validateGoogleSearchRequest = (type) => {
   };
 };
 
+const websiteValidationSchema = {
+  store: Joi.object({
+    domain: Joi.string().domain().max(255).required(),
+    niche: Joi.string().max(100).allow(null, ''),
+    status: Joi.string().valid('active', 'inactive', 'suspended').default('active'),
+    monthly_revenue: Joi.number().min(0).default(0),
+    domain_authority: Joi.number().integer().min(0).max(100).default(0),
+    backlinks: Joi.number().integer().min(0).default(0),
+    organic_keywords: Joi.number().integer().min(0).default(0),
+    organic_traffic: Joi.number().integer().min(0).default(0),
+    top_keywords: Joi.array().items(Joi.string()).allow(null),
+    competitors: Joi.array().items(Joi.string()).allow(null),
+    seo_last_updated: Joi.date().allow(null)
+  }),
+  
+  update: Joi.object({
+    domain: Joi.string().domain().max(255),
+    niche: Joi.string().max(100).allow(null, ''),
+    status: Joi.string().valid('active', 'inactive', 'suspended'),
+    monthly_revenue: Joi.number().min(0),
+    domain_authority: Joi.number().integer().min(0).max(100),
+    backlinks: Joi.number().integer().min(0),
+    organic_keywords: Joi.number().integer().min(0),
+    organic_traffic: Joi.number().integer().min(0),
+    top_keywords: Joi.array().items(Joi.string()).allow(null),
+    competitors: Joi.array().items(Joi.string()).allow(null),
+    seo_last_updated: Joi.date().allow(null)
+  })
+};
+
+const taskValidationSchema = {
+  store: Joi.object({
+    website_id: Joi.string().max(36).allow(null, ''),
+    title: Joi.string().max(255).required(),
+    description: Joi.string().allow(null, ''),
+    status: Joi.string().valid('todo', 'in_progress', 'completed').default('todo'),
+    priority: Joi.string().valid('low', 'medium', 'high').default('medium'),
+    assignee: Joi.string().max(255).allow(null, ''),
+    due_date: Joi.date().allow(null)
+  }),
+  
+  update: Joi.object({
+    website_id: Joi.string().max(36).allow(null, ''),
+    title: Joi.string().max(255),
+    description: Joi.string().allow(null, ''),
+    status: Joi.string().valid('todo', 'in_progress', 'completed'),
+    priority: Joi.string().valid('low', 'medium', 'high'),
+    assignee: Joi.string().max(255).allow(null, ''),
+    due_date: Joi.date().allow(null)
+  })
+};
+
+const validateWebsite = (type) => {
+  return (req, res, next) => {
+    const schema = websiteValidationSchema[type];
+    const { error, value } = schema.validate(req.body);
+    
+    if (error) {
+      const errors = error.details.reduce((acc, detail) => {
+        acc[detail.context.key] = [detail.message];
+        return acc;
+      }, {});
+      
+      return res.status(422).json({
+        message: 'The given data was invalid.',
+        errors: errors
+      });
+    }
+    
+    req.validatedData = value;
+    next();
+  };
+};
+
+const validateTask = (type) => {
+  return (req, res, next) => {
+    const schema = taskValidationSchema[type];
+    const { error, value } = schema.validate(req.body);
+    
+    if (error) {
+      const errors = error.details.reduce((acc, detail) => {
+        acc[detail.context.key] = [detail.message];
+        return acc;
+      }, {});
+      
+      return res.status(422).json({
+        message: 'The given data was invalid.',
+        errors: errors
+      });
+    }
+    
+    req.validatedData = value;
+    next();
+  };
+};
+
 module.exports = {
   validateLead,
   validateClient,
   validateSeoRequest,
   validateBacklinkRequest,
-  validateGoogleSearchRequest
+  validateGoogleSearchRequest,
+  validateWebsite,
+  validateTask
 };

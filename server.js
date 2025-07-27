@@ -5,6 +5,9 @@ require('dotenv').config();
 const leadRoutes = require('./routes/leadRoutes');
 const seoRoutes = require('./routes/seoRoutes');
 const clientRoutes = require('./routes/clientRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const websiteRoutes = require('./routes/websiteRoutes');
+const taskRoutes = require('./routes/taskRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,6 +26,9 @@ app.get('/api/test', (req, res) => {
 app.use('/api', leadRoutes);
 app.use('/api', seoRoutes);
 app.use('/api', clientRoutes);
+app.use('/api', dashboardRoutes);
+app.use('/api', websiteRoutes);
+app.use('/api', taskRoutes);
 
 // API endpoints documentation
 app.get('/api/endpoints', (req, res) => {
@@ -100,6 +106,77 @@ app.get('/api/endpoints', (req, res) => {
       method: 'DELETE',
       path: '/api/clients/:id',
       description: 'Delete a client'
+    },
+    
+    // Dashboard endpoints
+    {
+      method: 'GET',
+      path: '/api/dashboard/stats',
+      description: 'Get dashboard statistics (revenue, websites, leads, clients, phones)'
+    },
+    {
+      method: 'GET',
+      path: '/api/dashboard/activity',
+      description: 'Get recent activity feed',
+      optional_parameters: 'limit (default: 10)'
+    },
+    
+    // Website management endpoints  
+    {
+      method: 'GET',
+      path: '/api/websites',
+      description: 'Get all websites with filtering, searching, and pagination',
+      parameters: 'status, search, sort_by, sort_dir, page, per_page'
+    },
+    {
+      method: 'GET',
+      path: '/api/websites/:id',
+      description: 'Get a specific website by ID'
+    },
+    {
+      method: 'POST',
+      path: '/api/websites',
+      description: 'Create a new website',
+      required_fields: 'domain'
+    },
+    {
+      method: 'PUT',
+      path: '/api/websites/:id',
+      description: 'Update an existing website'
+    },
+    {
+      method: 'DELETE',
+      path: '/api/websites/:id',
+      description: 'Delete a website'
+    },
+    
+    // Task management endpoints
+    {
+      method: 'GET',
+      path: '/api/tasks',
+      description: 'Get all tasks with filtering, searching, and pagination',
+      parameters: 'status, website_id, priority, assignee, search, sort_by, sort_dir, page, per_page'
+    },
+    {
+      method: 'GET',
+      path: '/api/tasks/:id',
+      description: 'Get a specific task by ID'
+    },
+    {
+      method: 'POST',
+      path: '/api/tasks',
+      description: 'Create a new task',
+      required_fields: 'title'
+    },
+    {
+      method: 'PUT',
+      path: '/api/tasks/:id',
+      description: 'Update an existing task'
+    },
+    {
+      method: 'DELETE',
+      path: '/api/tasks/:id',
+      description: 'Delete a task'
     },
     
     // SEO & Keyword Research endpoints
