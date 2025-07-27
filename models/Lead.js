@@ -18,98 +18,55 @@ class Lead {
     this.updated_at = data.updated_at;
   }
 
+  // ✅ SIMPLIFIED: Fetch all leads (no pagination)
   static async findAll(filters = {}) {
     let sql = 'SELECT * FROM leads WHERE 1=1';
     const params = [];
-    
-    // Apply filters
+
+    // Optional filters
     if (filters.status) {
       sql += ' AND status = ?';
       params.push(filters.status);
     }
-    
+
     if (filters.search) {
       sql += ' AND (name LIKE ? OR company LIKE ? OR email LIKE ?)';
       const searchTerm = `%${filters.search}%`;
       params.push(searchTerm, searchTerm, searchTerm);
     }
-    
-    // Apply sorting
 
-const allowedSorts = ['created_at', 'name', 'email', 'company'];
+    // Sorting
+    const allowedSorts = ['created_at', 'name', 'email', 'company'];
+    let sortBy = filters.sort_by;
+    if (!allowedSorts.includes(sortBy)) sortBy = 'created_at';
 
-let sortBy = filters.sort_by;
-if (!allowedSorts.includes(sortBy)) {
-  sortBy = 'created_at';
-}
+    let sortDir = filters.sort_dir?.toLowerCase();
+    if (!['asc', 'desc'].includes(sortDir)) sortDir = 'desc';
 
-let sortDir = filters.sort_dir?.toLowerCase();
-if (!['asc', 'desc'].includes(sortDir)) {
-  sortDir = 'desc';
-}
-sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
-    
-    // Apply pagination
-let page = parseInt(filters.page, 10);
-let perPage = parseInt(filters.per_page, 10);
+    sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
 
-if (!Number.isFinite(page) || page < 1) page = 1;
-if (!Number.isFinite(perPage) || perPage < 1) perPage = 15;
+    const results = await db.query(sql, params);
 
-const offset = (page - 1) * perPage;
-
-sql += ' LIMIT ? OFFSET ?';
-params.push(perPage, offset);
-
-
-    
-    const leads = await db.query(sql, params);
-    
-    // Get total count for pagination
-    let countSql = 'SELECT COUNT(*) as total FROM leads WHERE 1=1';
-    const countParams = [];
-    
-    if (filters.status) {
-      countSql += ' AND status = ?';
-      countParams.push(filters.status);
-    }
-    
-    if (filters.search) {
-      countSql += ' AND (name LIKE ? OR company LIKE ? OR email LIKE ?)';
-      const searchTerm = `%${filters.search}%`;
-      countParams.push(searchTerm, searchTerm, searchTerm);
-    }
-    
-    const countResult = await db.query(countSql, countParams);
-    const total = countResult[0].total;
-    
     return {
-      data: leads.map(lead => new Lead(lead)),
-      pagination: {
-        current_page: page,
-        per_page: perPage,
-        total: total,
-        last_page: Math.ceil(total / perPage),
-        from: offset + 1,
-        to: Math.min(offset + perPage, total)
-      }
+      data: results.map(lead => new Lead(lead)),
+      pagination: null, // Not needed here
     };
   }
 
   static async findById(id) {
     const sql = 'SELECT * FROM leads WHERE id = ?';
     const results = await db.query(sql, [id]);
-    
+
     if (results.length === 0) {
       return null;
     }
-    
+
     return new Lead(results[0]);
   }
 
   async save() {
     const now = new Date();
-    
+
     if (this.created_at) {
       // Update existing lead
       this.updated_at = now;
@@ -125,7 +82,7 @@ params.push(perPage, offset);
         this.notes, this.reviews, this.website, this.contacted, this.city,
         this.updated_at, this.id
       ];
-      
+
       await db.query(sql, params);
     } else {
       // Create new lead
@@ -142,10 +99,10 @@ params.push(perPage, offset);
         this.notes, this.reviews, this.website, this.contacted, this.city,
         this.created_at, this.updated_at
       ];
-      
+
       await db.query(sql, params);
     }
-    
+
     return this;
   }
 
@@ -166,7 +123,7 @@ params.push(perPage, offset);
         this[key] = data[key];
       }
     });
-    
+
     return await this.save();
   }
 }
