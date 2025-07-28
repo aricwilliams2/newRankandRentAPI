@@ -91,8 +91,8 @@ static async findAll(filters = {}) {
   }
 
   async delete() {
-    const sql = 'DELETE FROM clients WHERE id = ?';
-    await db.query(sql, [this.id]);
+    const sql = 'DELETE FROM clients WHERE id = ? AND user_id = ?';
+    await db.query(sql, [this.id, this.user_id]);
     return true;
   }
 

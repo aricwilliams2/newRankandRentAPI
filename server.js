@@ -6,6 +6,7 @@ const leadRoutes = require('./routes/leadRoutes');
 const seoRoutes = require('./routes/seoRoutes');
 const clientRoutes = require('./routes/clientRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const authRoutes = require('./routes/authRoutes');
 const websiteRoutes = require('./routes/websiteRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 
@@ -23,6 +24,7 @@ app.get('/api/test', (req, res) => {
 });
 
 // API routes
+app.use('/api/auth', authRoutes);
 app.use('/api', leadRoutes);
 app.use('/api', seoRoutes);
 app.use('/api', clientRoutes);
@@ -38,6 +40,24 @@ app.get('/api/endpoints', (req, res) => {
       method: 'GET',
       path: '/api/test',
       description: 'Test endpoint to verify API is working'
+    },
+    {
+      method: 'POST',
+      path: '/api/auth/register',
+      description: 'Register a new user',
+      required_fields: 'name, email, password'
+    },
+    {
+      method: 'POST',
+      path: '/api/auth/login',
+      description: 'Login user',
+      required_fields: 'email, password'
+    },
+    {
+      method: 'GET',
+      path: '/api/auth/profile',
+      description: 'Get current user profile',
+      auth_required: true
     },
     {
       method: 'GET',

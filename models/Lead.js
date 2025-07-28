@@ -100,8 +100,8 @@ class Lead {
   }
 
   async delete() {
-    const sql = 'DELETE FROM leads WHERE id = ?';
-    await db.query(sql, [this.id]);
+    const sql = 'DELETE FROM leads WHERE id = ? AND user_id = ?';
+    await db.query(sql, [this.id, this.user_id]);
     return true;
   }
 

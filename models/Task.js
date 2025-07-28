@@ -68,14 +68,14 @@ class Task {
     };
   }
 
-  static async findById(id) {
+  static async findById(id, userId) {
     const sql = `
       SELECT t.*, w.domain as website_domain 
       FROM tasks t 
       LEFT JOIN websites w ON t.website_id = w.id 
-      WHERE t.id = ?
+      WHERE t.id = ? AND t.user_id = ?
     `;
-    const results = await db.query(sql, [id]);
+    const results = await db.query(sql, [id, userId]);
     if (results.length) {
       const task = new Task(results[0]);
       task.website_domain = results[0].website_domain;
@@ -110,11 +110,12 @@ class Task {
     this.updated_at = now;
     const sql = `
       INSERT INTO tasks (
-        website_id, title, description, status, priority, 
+        user_id, website_id, title, description, status, priority, 
         assignee, due_date, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const params = [
+      this.user_id,
       this.website_id, this.title, this.description, this.status,
       this.priority, this.assignee, this.due_date, this.created_at, this.updated_at
     ];
@@ -124,8 +125,8 @@ class Task {
   }
 
   async delete() {
-    const sql = 'DELETE FROM tasks WHERE id = ?';
-    await db.query(sql, [this.id]);
+    const sql = 'DELETE FROM tasks WHERE id = ? AND user_id = ?';
+    await db.query(sql, [this.id, this.user_id]);
     return true;
   }
 

@@ -64,7 +64,7 @@ class DashboardController {
   async getRecentActivity(req, res) {
     try {
       const limit = parseInt(req.query.limit) || 10;
-      const activities = await Activity.findRecent(limit);
+      const activities = await Activity.findRecent(limit, req.user.id);
 
       const formattedActivities = activities.map(activity => ({
         id: activity.id,

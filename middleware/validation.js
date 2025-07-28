@@ -326,6 +326,28 @@ const validateTask = (type) => {
   };
 };
 
+const validateAuth = (type) => {
+  return (req, res, next) => {
+    const schema = authValidationSchema[type];
+    const { error, value } = schema.validate(req.body);
+    
+    if (error) {
+      const errors = error.details.reduce((acc, detail) => {
+        acc[detail.context.key] = [detail.message];
+        return acc;
+      }, {});
+      
+      return res.status(422).json({
+        message: 'The given data was invalid.',
+        errors: errors
+      });
+    }
+    
+    req.validatedData = value;
+    next();
+  };
+};
+
 module.exports = {
   validateLead,
   validateClient,
@@ -333,5 +355,6 @@ module.exports = {
   validateBacklinkRequest,
   validateGoogleSearchRequest,
   validateWebsite,
-  validateTask
+  validateTask,
+  validateAuth
 };

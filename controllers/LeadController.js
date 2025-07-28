@@ -16,6 +16,7 @@ class LeadController {
       };
       
       const result = await Lead.findAll(filters);
+      const result = await Lead.findAll(filters, req.user.id);
       
       res.json(result);
     } catch (error) {
@@ -30,7 +31,7 @@ class LeadController {
   async show(req, res) {
     try {
       const { id } = req.params;
-      const lead = await Lead.findById(id);
+      const lead = await Lead.findById(id, req.user.id);
       
       if (!lead) {
         return res.status(404).json({ error: 'Lead not found' });
@@ -63,7 +64,7 @@ class LeadController {
   async update(req, res) {
     try {
       const { id } = req.params;
-      const lead = await Lead.findById(id);
+      const lead = await Lead.findById(id, req.user.id);
       
       if (!lead) {
         return res.status(404).json({ error: 'Lead not found' });
@@ -84,7 +85,7 @@ class LeadController {
   async destroy(req, res) {
     try {
       const { id } = req.params;
-      const lead = await Lead.findById(id);
+      const lead = await Lead.findById(id, req.user.id);
       
       if (!lead) {
         return res.status(404).json({ error: 'Lead not found' });

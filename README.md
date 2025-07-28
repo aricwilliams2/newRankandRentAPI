@@ -5,6 +5,8 @@ This is a Node.js API converted from PHP Laravel, providing full CRUD operations
 ## Features
 
 - ✅ Full CRUD operations (Create, Read, Update, Delete)
+- ✅ User authentication and authorization with JWT
+- ✅ User-specific data isolation
 - ✅ Advanced filtering and searching
 - ✅ Pagination support
 - ✅ Input validation
@@ -32,6 +34,11 @@ npm run dev
 ```
 
 ## API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Register a new user
+- `POST /api/auth/login` - Login user and get JWT token
+- `GET /api/auth/profile` - Get current user profile
 
 ### General
 - `GET /api/endpoints` - List all available API endpoints
@@ -167,14 +174,53 @@ Content-Type: application/json
 }
 ```
 
+### Authentication
+
+All protected endpoints require an Authorization header with a valid JWT token:
+
+```
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+#### Register a new user:
+```bash
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "securepassword123"
+}
+```
+
+#### Login:
+```bash
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "password": "securepassword123"
+}
+```
+
+#### Get user profile:
+```bash
+GET /api/auth/profile
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
 #### Get leads with filtering:
 ```bash
 GET /api/leads?status=New&search=john&page=1&per_page=10
+Authorization: Bearer YOUR_JWT_TOKEN
 ```
 
 #### Create a new lead:
 ```bash
 POST /api/leads
+Authorization: Bearer YOUR_JWT_TOKEN
 Content-Type: application/json
 
 {
@@ -189,6 +235,7 @@ Content-Type: application/json
 #### Update a lead:
 ```bash
 PUT /api/leads/lead-uuid-here
+Authorization: Bearer YOUR_JWT_TOKEN
 Content-Type: application/json
 
 {
@@ -277,6 +324,7 @@ Copy the `.env` file and configure:
 - `DB_USERNAME` - Database username
 - `DB_PASSWORD` - Database password
 - `PORT` - Server port (default: 3000)
+- `JWT_SECRET` - Secret key for JWT token signing (change in production!)
 - `RAPIDAPI_KEY` - Your RapidAPI key for SEO Traffic Authority API
 - `RAPIDAPI_HOST` - RapidAPI host (seo-traffic-authority.p.rapidapi.com)
 - `RAPIDAPI_BACKLINKS_HOST` - RapidAPI host for backlinks (backlinks-and-keywords-fetcher.p.rapidapi.com)

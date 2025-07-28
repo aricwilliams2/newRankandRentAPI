@@ -3,6 +3,7 @@ const db = require('../config/database');
 class Activity {
   constructor(data = {}) {
     this.id = data.id;
+    this.user_id = data.user_id;
     this.type = data.type;
     this.title = data.title;
     this.description = data.description;
@@ -12,15 +13,16 @@ class Activity {
     this.created_at = data.created_at;
   }
 
-  static async findRecent(limit = 10) {
+  static async findRecent(limit = 10, userId) {
     const sql = `
       SELECT a.*, w.domain as website_domain 
       FROM activity_log a 
       LEFT JOIN websites w ON a.website_id = w.id 
+      WHERE a.user_id = ?
       ORDER BY a.created_at DESC 
       LIMIT ?
     `;
-    const results = await db.query(sql, [limit]);
+    const results = await db.query(sql, [userId, limit]);
     return results.map(row => ({
       ...new Activity(row),
       website_domain: row.website_domain
@@ -34,12 +36,12 @@ class Activity {
 
     const sql = `
       INSERT INTO activity_log (
-        type, title, description, website_id, user_id, metadata, created_at
+        user_id, type, title, description, website_id, metadata, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     const params = [
+      activity.user_id,
       activity.type, activity.title, activity.description,
-      activity.website_id, activity.user_id,
       activity.metadata ? JSON.stringify(activity.metadata) : null,
       activity.created_at
     ];
@@ -48,13 +50,13 @@ class Activity {
     return activity;
   }
 
-  static async logActivity(type, title, description = null, websiteId = null, userId = null, metadata = null) {
+  static async logActivity(type, title, description = null, websiteId = null, userId, metadata = null) {
     return await this.create({
+      user_id: userId,
       type,
       title,
       description,
       website_id: websiteId,
-      user_id: userId,
       metadata
     });
   }

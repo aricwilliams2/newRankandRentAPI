@@ -17,6 +17,7 @@ class WebsiteController {
       };
       
       const result = await Website.findAll(filters);
+      const result = await Website.findAll(filters, req.user.id);
       
       res.json(result);
     } catch (error) {
@@ -114,7 +115,8 @@ class WebsiteController {
         'website_deleted',
         'Website deleted',
         `Website ${website.domain} was deleted from the system`,
-        null
+        null,
+        req.user.id
       );
       
       res.json({ message: 'Website deleted successfully' });

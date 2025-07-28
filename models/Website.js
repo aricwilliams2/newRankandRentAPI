@@ -125,7 +125,7 @@ class Website {
     return await this.save();
   }
 
-  static async getStats() {
+  static async getStats(userId) {
     const [
       totalRevenue,
       activeWebsites,
@@ -133,11 +133,11 @@ class Website {
       activeClients,
       totalPhones
     ] = await Promise.all([
-      db.query('SELECT SUM(monthly_revenue) as total FROM websites WHERE status = "active"'),
-      db.query('SELECT COUNT(*) as count FROM websites WHERE status = "active"'),
-      db.query('SELECT COUNT(*) as count FROM leads'),
-      db.query('SELECT COUNT(*) as count FROM clients WHERE status = "active"'),
-      db.query('SELECT COUNT(*) as count FROM phone_numbers WHERE status = "active"')
+      db.query('SELECT SUM(monthly_revenue) as total FROM websites WHERE status = "active" AND user_id = ?', [userId]),
+      db.query('SELECT COUNT(*) as count FROM websites WHERE status = "active" AND user_id = ?', [userId]),
+      db.query('SELECT COUNT(*) as count FROM leads WHERE user_id = ?', [userId]),
+      db.query('SELECT COUNT(*) as count FROM clients WHERE user_id = ?', [userId]),
+      db.query('SELECT COUNT(*) as count FROM phone_numbers WHERE status = "active" AND user_id = ?', [userId])
     ]);
 
     return {

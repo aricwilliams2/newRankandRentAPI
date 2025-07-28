@@ -120,7 +120,8 @@ class TaskController {
         'task_deleted',
         'Task deleted',
         `Task "${task.title}" was deleted`,
-        task.website_id
+        task.website_id,
+        req.user.id
       );
       
       res.json({ message: 'Task deleted successfully' });
