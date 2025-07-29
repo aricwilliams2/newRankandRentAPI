@@ -67,9 +67,9 @@ const backlinkValidationSchema = {
 
 const leadValidationSchema = {
   store: Joi.object({
-    name: Joi.string().max(255).required(),
+    name: Joi.string().max(255).allow("", null).optional(),
     email: Joi.string().email().max(255).allow(null, ""),
-    phone: Joi.string().max(20).required(),
+    phone: Joi.string().max(20).allow("", null).optional(),
     company: Joi.string().max(255).allow(null, ""),
     status: Joi.string().valid("New", "Contacted", "Qualified", "Converted", "Lost").default("New"),
     notes: Joi.string().allow(null, ""),
@@ -104,6 +104,7 @@ const clientValidationSchema = {
     contacted: Joi.boolean().default(false),
     follow_up_at: Joi.date().allow(null),
     notes: Joi.string().allow(null, ""),
+    user_id: Joi.number().integer().required(),
   }),
 
   update: Joi.object({
@@ -116,13 +117,14 @@ const clientValidationSchema = {
     contacted: Joi.boolean(),
     follow_up_at: Joi.date().allow(null),
     notes: Joi.string().allow(null, ""),
+    user_id: Joi.number().integer().required(),
   }),
 };
 
 const validateLead = (type) => {
   return (req, res, next) => {
     const schema = leadValidationSchema[type];
-    const { error, value } = schema.validate(req.body);
+    const { error, value } = schema.validate(req.body, { stripUnknown: true });
 
     if (error) {
       const errors = error.details.reduce((acc, detail) => {
