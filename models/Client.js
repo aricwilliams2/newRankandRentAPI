@@ -67,21 +67,22 @@ class Client {
             email = ?, user_id = ?
           WHERE id = ?
         `;
-        const params = [
-          this.sanitize(this.name),
-          this.sanitize(this.city),
-          this.sanitize(this.reviews),
-          this.sanitize(this.phone),
-          this.sanitize(this.website),
-          this.sanitize(this.contacted),
-          this.sanitize(this.follow_up_at),
-          this.sanitize(this.notes),
-          this.sanitize(this.created_at),
-          this.sanitize(this.updated_at),
-          this.sanitize(this.email),
-          this.sanitize(this.user_id),
-          this.sanitize(this.id)
-        ];
+     const params = [
+  this.name,
+  this.city,
+  this.reviews,
+  this.phone,
+  this.website,
+  this.contacted,
+  this.follow_up_at,
+  this.notes,
+  this.created_at,
+  this.updated_at,
+  this.email,
+  this.user_id,
+  this.id
+];
+
         await db.query(sql, params);
         return this;
       }
@@ -97,20 +98,21 @@ class Client {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const params = [
-      this.sanitize(this.name),
-      this.sanitize(this.city),
-      this.sanitize(this.reviews),
-      this.sanitize(this.phone),
-      this.sanitize(this.website),
-      this.sanitize(this.contacted),
-      this.sanitize(this.follow_up_at),
-      this.sanitize(this.notes),
-      this.sanitize(this.created_at),
-      this.sanitize(this.updated_at),
-      this.sanitize(this.email),
-      this.sanitize(this.user_id)
-    ];
+   const params = [
+  this.name,
+  this.city,
+  this.reviews,
+  this.phone,
+  this.website,
+  this.contacted,
+  this.follow_up_at,
+  this.notes,
+  this.created_at,
+  this.updated_at,
+  this.email,
+  this.user_id
+];
+
 
     const result = await db.query(sql, params);
     this.id = result.insertId;
