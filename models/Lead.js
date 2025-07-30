@@ -18,7 +18,7 @@ class Lead {
     this.user_id = data.user_id;
   }
 
-  static async findAll(filters = {}) {
+  static async findAll(filters = {}, userId) {
     let sql = "SELECT * FROM leads WHERE user_id = ?";
     const params = [userId];
 
@@ -29,16 +29,13 @@ class Lead {
 
     if (filters.search) {
       sql += " AND (name LIKE ? OR company LIKE ? OR email LIKE ?)";
-      const searchTerm = `%${filters.search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+      const term = `%${filters.search}%`;
+      params.push(term, term, term);
     }
 
     const allowedSorts = ["created_at", "name", "email", "company"];
-    let sortBy = filters.sort_by;
-    if (!allowedSorts.includes(sortBy)) sortBy = "created_at";
-
-    let sortDir = filters.sort_dir?.toLowerCase();
-    if (!["asc", "desc"].includes(sortDir)) sortDir = "desc";
+    const sortBy = allowedSorts.includes(filters.sort_by) ? filters.sort_by : "created_at";
+    const sortDir = ["asc", "desc"].includes((filters.sort_dir || "").toLowerCase()) ? filters.sort_dir : "desc";
 
     sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
 
@@ -48,6 +45,7 @@ class Lead {
       pagination: null,
     };
   }
+
 
   static async findById(id, userId) {
     const sql = "SELECT * FROM leads WHERE id = ? AND user_id = ?";
