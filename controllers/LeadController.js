@@ -49,8 +49,8 @@ class LeadController {
   async store(req, res) {
     try {
       // Set user_id from token if authenticated, otherwise null for unauthenticated lead creation
-      req.validatedData.user_id = req.user ? req.user.id : null;
-      const lead = await Lead.create(req.validatedData);
+
+      const lead = await Lead.create(req.user.id);
 
       res.status(201).json(lead);
     } catch (error) {
@@ -71,7 +71,7 @@ class LeadController {
         return res.status(404).json({ error: "Lead not found" });
       }
 
-      const updatedLead = await lead.update(req.validatedData);
+      const updatedLead = await lead.update(req.user.id);
 
       res.json(updatedLead);
     } catch (error) {
