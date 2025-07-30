@@ -119,7 +119,7 @@ class Lead {
   this.city,
   this.created_at,
   this.updated_at,
-  this.user_id,
+  this.id,
 ];
 
 
