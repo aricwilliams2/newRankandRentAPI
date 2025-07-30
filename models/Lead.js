@@ -75,20 +75,21 @@ class Lead {
   WHERE id = ?
 `;
 
-        const params = [
-          this.sanitize(this.name),
-          this.sanitize(this.email),
-          this.sanitize(this.phone),
-          this.sanitize(this.company),
-          this.sanitize(this.status),
-          this.sanitize(this.notes),
-          this.sanitize(this.reviews),
-          this.sanitize(this.website),
-          this.sanitize(this.contacted),
-          this.sanitize(this.city),
-          this.sanitize(now),
-          this.sanitize(this.id),
-        ];
+       const params = [
+  this.name,
+  this.email,
+  this.phone,
+  this.company,
+  this.status,
+  this.notes,
+  this.reviews,
+  this.website,
+  this.contacted,
+  this.city,
+  now,
+  this.id,
+];
+
 
         await db.query(sql, params);
         return this;
@@ -105,21 +106,22 @@ class Lead {
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
-    const params = [
-      this.sanitize(this.name),
-      this.sanitize(this.email),
-      this.sanitize(this.phone),
-      this.sanitize(this.company),
-      this.sanitize(this.status),
-      this.sanitize(this.notes),
-      this.sanitize(this.reviews),
-      this.sanitize(this.website),
-      this.sanitize(this.contacted),
-      this.sanitize(this.city),
-      this.sanitize(this.created_at),
-      this.sanitize(this.updated_at),
-      this.sanitize(this.user_id),
-    ];
+ const params = [
+  this.name,
+  this.email,
+  this.phone,
+  this.company,
+  this.status,
+  this.notes,
+  this.reviews,
+  this.website,
+  this.contacted,
+  this.city,
+  this.created_at,
+  this.updated_at,
+  this.user_id,
+];
+
 
     const result = await db.query(sql, params);
     this.id = result.insertId;
