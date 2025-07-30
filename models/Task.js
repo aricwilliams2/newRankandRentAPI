@@ -63,7 +63,7 @@ class Task {
     return {
       data: results.map(row => ({
         ...new Task(row),
-        website_domain: row.website_domain
+        website_domain: row.website_domain || 'No Website'
       })),
       pagination: null,
     };
@@ -79,7 +79,7 @@ class Task {
     const results = await db.query(sql, [id, userId]);
     if (results.length) {
       const task = new Task(results[0]);
-      task.website_domain = results[0].website_domain;
+      task.website_domain = results[0].website_domain || 'No Website';
       return task;
     }
     return null;

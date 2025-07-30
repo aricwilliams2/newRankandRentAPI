@@ -49,12 +49,12 @@ class WebsiteController {
    */
   async store(req, res) {
     try {
-      // Set user_id for authenticated website creation
+      // Set user_id from authenticated user token
       req.validatedData.user_id = req.user.id;
       const website = await Website.create(req.validatedData);
 
       // Log activity
-      await Activity.logActivity("website_created", "New website added", `Website ${website.domain} was added to the system`, website.id);
+      await Activity.logActivity("website_created", "New website added", `Website ${website.domain} was added to the system`, website.id, req.user.id);
 
       res.status(201).json(website);
     } catch (error) {
@@ -78,7 +78,7 @@ class WebsiteController {
       const updatedWebsite = await website.update(req.validatedData);
 
       // Log activity
-      await Activity.logActivity("website_updated", "Website updated", `Website ${updatedWebsite.domain} was updated`, updatedWebsite.id);
+      await Activity.logActivity("website_updated", "Website updated", `Website ${updatedWebsite.domain} was updated`, updatedWebsite.id, req.user.id);
 
       res.json(updatedWebsite);
     } catch (error) {

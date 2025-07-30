@@ -296,7 +296,7 @@ const websiteValidationSchema = {
 
 const taskValidationSchema = {
   store: Joi.object({
-    website_id: Joi.string().max(36).allow(null, ""),
+    website_id: Joi.string().max(36).allow(null, "").optional(),
     title: Joi.string().max(255).required(),
     description: Joi.string().allow(null, ""),
     status: Joi.string().valid("todo", "in_progress", "completed").default("todo"),
@@ -306,7 +306,7 @@ const taskValidationSchema = {
   }),
 
   update: Joi.object({
-    website_id: Joi.string().max(36).allow(null, ""),
+    website_id: Joi.string().max(36).allow(null, "").optional(),
     title: Joi.string().max(255),
     description: Joi.string().allow(null, ""),
     status: Joi.string().valid("todo", "in_progress", "completed"),

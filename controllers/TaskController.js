@@ -52,7 +52,7 @@ class TaskController {
    */
   async store(req, res) {
     try {
-      // Set user_id for authenticated task creation
+      // Set user_id from authenticated user token
       req.validatedData.user_id = req.user.id;
       const task = await Task.create(req.validatedData);
       
@@ -61,7 +61,8 @@ class TaskController {
         'task_created',
         'New task created',
         `Task "${task.title}" was created`,
-        task.website_id
+        task.website_id,
+        req.user.id
       );
       
       res.status(201).json(task);
@@ -92,7 +93,8 @@ class TaskController {
           'task_status_changed',
           'Task status updated',
           `Task "${updatedTask.title}" status changed from ${oldStatus} to ${updatedTask.status}`,
-          updatedTask.website_id
+          updatedTask.website_id,
+          req.user.id
         );
       }
       
