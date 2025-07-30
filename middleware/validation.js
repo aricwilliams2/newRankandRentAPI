@@ -47,6 +47,39 @@ const seoValidationSchema = {
       "string.base": "ID must be a string",
     }),
   }),
+
+  websiteTraffic: Joi.object({
+    url: Joi.string().domain().required().messages({
+      'string.domain': 'Please provide a valid domain name',
+      'any.required': 'URL parameter is required',
+    }),
+    mode: Joi.string().valid('subdomains', 'exact').default('subdomains').messages({
+      'string.base': 'Mode must be a string',
+      'any.only': 'Mode must be either "subdomains" or "exact"',
+    }),
+  }),
+
+  websiteAuthority: Joi.object({
+    url: Joi.string().domain().required().messages({
+      'string.domain': 'Please provide a valid domain name',
+      'any.required': 'URL parameter is required',
+    }),
+    mode: Joi.string().valid('subdomains', 'exact').default('subdomains').messages({
+      'string.base': 'Mode must be a string',
+      'any.only': 'Mode must be either "subdomains" or "exact"',
+    }),
+  }),
+
+  websiteBacklinks: Joi.object({
+    url: Joi.string().domain().required().messages({
+      'string.domain': 'Please provide a valid domain name',
+      'any.required': 'URL parameter is required',
+    }),
+    mode: Joi.string().valid('subdomains', 'exact').default('subdomains').messages({
+      'string.base': 'Mode must be a string',
+      'any.only': 'Mode must be either "subdomains" or "exact"',
+    }),
+  }),
 };
 
 const backlinkValidationSchema = {

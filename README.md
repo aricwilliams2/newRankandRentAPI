@@ -154,6 +154,21 @@ GET /api/keyword-metrics?keyword=fishing&country=us
 GET /api/keyword-generator?keyword=fishing&country=us
 ```
 
+#### Get website traffic data:
+```bash
+GET /api/website-traffic?url=rapidapi.com&mode=subdomains
+```
+
+#### Get website authority metrics:
+```bash
+GET /api/website-authority?url=rapidapi.com
+```
+
+#### Get website backlinks data:
+```bash
+GET /api/website-backlinks?url=rapidapi.com&mode=subdomains
+```
+
 #### Get domain backlinks:
 ```bash
 POST /api/domain-backlinks

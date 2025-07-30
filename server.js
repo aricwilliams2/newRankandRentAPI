@@ -209,6 +209,27 @@ app.get("/api/endpoints", (req, res) => {
     },
     {
       method: "GET",
+      path: "/api/website-traffic",
+      description: "Get website traffic data including monthly averages, history, top pages, and keywords",
+      required_parameters: "url",
+      optional_parameters: "mode (subdomains/exact, default: subdomains)",
+    },
+    {
+      method: "GET",
+      path: "/api/website-authority",
+      description: "Get website authority metrics including domain rating, backlinks, and referring domains",
+      required_parameters: "url",
+      optional_parameters: "mode (subdomains/exact, default: subdomains)",
+    },
+    {
+      method: "GET",
+      path: "/api/website-backlinks",
+      description: "Get detailed website backlinks data with authority metrics and backlinks list",
+      required_parameters: "url",
+      optional_parameters: "mode (subdomains/exact, default: subdomains)",
+    },
+    {
+      method: "GET",
       path: "/api/keyword-metrics",
       description: "Get keyword search volume, CPC, and difficulty metrics",
       required_parameters: "keyword",

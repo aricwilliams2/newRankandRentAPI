@@ -9,6 +9,11 @@ router.get('/keyword-metrics', validateSeoRequest('keywordMetrics'), SeoControll
 router.get('/keyword-generator', validateSeoRequest('keywordGenerator'), SeoController.getKeywordIdeas);
 router.post('/google-rank-check', validateSeoRequest('googleRankCheck'), SeoController.checkGoogleRank);
 
+// Website traffic and backlinks API routes
+router.get('/website-traffic', validateSeoRequest('websiteTraffic'), SeoController.getWebsiteTraffic);
+router.get('/website-authority', validateSeoRequest('websiteAuthority'), SeoController.getWebsiteAuthority);
+router.get('/website-backlinks', validateSeoRequest('websiteBacklinks'), SeoController.getWebsiteBacklinks);
+
 // Backlinks API routes
 router.post('/domain-backlinks', validateBacklinkRequest('domainBacklinks'), SeoController.getDomainBacklinks);
 router.post('/domain-keywords', validateBacklinkRequest('domainKeywords'), SeoController.getDomainKeywords);
