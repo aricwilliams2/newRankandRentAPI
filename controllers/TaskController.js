@@ -52,6 +52,8 @@ class TaskController {
    */
   async store(req, res) {
     try {
+      // Set user_id for authenticated task creation
+      req.validatedData.user_id = req.user.id;
       const task = await Task.create(req.validatedData);
       
       // Log activity

@@ -31,7 +31,7 @@ class WebsiteController {
   async show(req, res) {
     try {
       const { id } = req.params;
-      const website = await Website.findById(id);
+      const website = await Website.findById(id, req.user.id);
 
       if (!website) {
         return res.status(404).json({ error: "Website not found" });
@@ -49,6 +49,8 @@ class WebsiteController {
    */
   async store(req, res) {
     try {
+      // Set user_id for authenticated website creation
+      req.validatedData.user_id = req.user.id;
       const website = await Website.create(req.validatedData);
 
       // Log activity
@@ -67,7 +69,7 @@ class WebsiteController {
   async update(req, res) {
     try {
       const { id } = req.params;
-      const website = await Website.findById(id);
+      const website = await Website.findById(id, req.user.id);
 
       if (!website) {
         return res.status(404).json({ error: "Website not found" });
@@ -91,7 +93,7 @@ class WebsiteController {
   async destroy(req, res) {
     try {
       const { id } = req.params;
-      const website = await Website.findById(id);
+      const website = await Website.findById(id, req.user.id);
 
       if (!website) {
         return res.status(404).json({ error: "Website not found" });

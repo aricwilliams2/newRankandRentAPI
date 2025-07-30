@@ -48,6 +48,8 @@ class LeadController {
    */
   async store(req, res) {
     try {
+      // Set user_id to null for unauthenticated lead creation
+      req.validatedData.user_id = null;
       const lead = await Lead.create(req.validatedData);
 
       res.status(201).json(lead);

@@ -12,16 +12,17 @@ class Task {
     this.due_date = data.due_date;
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
+    this.user_id = data.user_id;
   }
 
-  static async findAll(filters = {}) {
+  static async findAll(filters = {}, userId) {
     let sql = `
       SELECT t.*, w.domain as website_domain 
       FROM tasks t 
       LEFT JOIN websites w ON t.website_id = w.id 
-      WHERE 1=1
+      WHERE t.user_id = ?
     `;
-    const params = [];
+    const params = [userId];
 
     if (filters.status) {
       sql += ' AND t.status = ?';

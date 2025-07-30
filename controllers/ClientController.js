@@ -48,6 +48,8 @@ class ClientController {
    */
   async store(req, res) {
     try {
+      // Set user_id for authenticated client creation
+      req.validatedData.user_id = req.user.id;
       const client = await Client.create(req.validatedData);
       
       res.status(201).json(client);

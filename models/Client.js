@@ -14,11 +14,12 @@ class Client {
     this.notes = data.notes;
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
+    this.user_id = data.user_id;
   }
 
-static async findAll(filters = {}) {
-  let sql = 'SELECT * FROM clients WHERE 1=1';
-  const params = [];
+static async findAll(filters = {}, userId) {
+  let sql = 'SELECT * FROM clients WHERE user_id = ?';
+  const params = [userId];
 
   if (filters.search) {
     sql += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
@@ -44,9 +45,9 @@ static async findAll(filters = {}) {
 
 
   
-  static async findById(id) {
-    const sql = 'SELECT * FROM clients WHERE id = ?';
-    const results = await db.query(sql, [id]);
+  static async findById(id, userId) {
+    const sql = 'SELECT * FROM clients WHERE id = ? AND user_id = ?';
+    const results = await db.query(sql, [id, userId]);
     return results.length ? new Client(results[0]) : null;
   }
 
@@ -76,12 +77,12 @@ static async findAll(filters = {}) {
     this.updated_at = now;
     const sql = `
       INSERT INTO clients (
-        name, email, phone, city, reviews, website,
+        user_id, name, email, phone, city, reviews, website,
         contacted, follow_up_at, notes, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const params = [
-      this.name, this.email, this.phone, this.city, this.reviews, this.website,
+      this.user_id, this.name, this.email, this.phone, this.city, this.reviews, this.website,
       this.contacted, this.follow_up_at, this.notes, this.created_at, this.updated_at
     ];
     const result = await db.query(sql, params);

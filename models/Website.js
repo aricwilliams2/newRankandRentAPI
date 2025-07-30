@@ -16,11 +16,12 @@ class Website {
     this.seo_last_updated = data.seo_last_updated;
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
+    this.user_id = data.user_id;
   }
 
-  static async findAll(filters = {}) {
-    let sql = 'SELECT * FROM websites WHERE 1=1';
-    const params = [];
+  static async findAll(filters = {}, userId) {
+    let sql = 'SELECT * FROM websites WHERE user_id = ?';
+    const params = [userId];
 
     if (filters.status) {
       sql += ' AND status = ?';
@@ -49,9 +50,9 @@ class Website {
     };
   }
 
-  static async findById(id) {
-    const sql = 'SELECT * FROM websites WHERE id = ?';
-    const results = await db.query(sql, [id]);
+  static async findById(id, userId) {
+    const sql = 'SELECT * FROM websites WHERE id = ? AND user_id = ?';
+    const results = await db.query(sql, [id, userId]);
     return results.length ? new Website(results[0]) : null;
   }
 
@@ -89,13 +90,13 @@ class Website {
     this.updated_at = now;
     const sql = `
       INSERT INTO websites (
-        domain, niche, status, monthly_revenue, domain_authority, 
+        user_id, domain, niche, status, monthly_revenue, domain_authority, 
         backlinks, organic_keywords, organic_traffic, top_keywords, 
         competitors, seo_last_updated, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const params = [
-      this.domain, this.niche, this.status, this.monthly_revenue,
+      this.user_id, this.domain, this.niche, this.status, this.monthly_revenue,
       this.domain_authority, this.backlinks, this.organic_keywords,
       this.organic_traffic, topKeywords, competitors,
       seoLastUpdated, this.created_at, this.updated_at

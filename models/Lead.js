@@ -19,8 +19,8 @@ class Lead {
   }
 
   static async findAll(filters = {}) {
-    let sql = "SELECT * FROM leads WHERE 1=1";
-    const params = [];
+    let sql = "SELECT * FROM leads WHERE user_id = ?";
+    const params = [userId];
 
     if (filters.status) {
       sql += " AND status = ?";
@@ -49,9 +49,9 @@ class Lead {
     };
   }
 
-  static async findById(id) {
-    const sql = "SELECT * FROM leads WHERE id = ?";
-    const results = await db.query(sql, [id]);
+  static async findById(id, userId) {
+    const sql = "SELECT * FROM leads WHERE id = ? AND user_id = ?";
+    const results = await db.query(sql, [id, userId]);
     return results.length ? new Lead(results[0]) : null;
   }
   sanitize(value) {
