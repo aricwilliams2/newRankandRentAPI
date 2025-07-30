@@ -15,7 +15,7 @@ class Lead {
     this.city = data.city;
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
-    this.user_id = data.id;
+    this.user_id = data.user_id;
   }
 
   static async findAll(filters = {}, userId) {
