@@ -91,6 +91,9 @@ class Task {
     const now = new Date();
 
     if (this.id) {
+        console.log("🔍 Task.findAll called with userId:", userId);
+
+      
       const existing = await db.query('SELECT id FROM tasks WHERE id = ?', [this.id]);
       if (existing.length > 0) {
         this.updated_at = now;
