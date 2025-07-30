@@ -19,8 +19,7 @@ class TaskController {
         per_page: req.query.per_page
       };
       
-      const result = await Task.findAll(filters);
-      
+ const result = await Task.findAll(filters, req.user.id);      
       res.json(result);
     } catch (error) {
       console.error('Error fetching tasks:', error);
