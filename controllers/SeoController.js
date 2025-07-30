@@ -9,6 +9,8 @@ class SeoController {
   this.rankCheckerBaseUrl = `https://${this.rankCheckerApiHost}`;
   this.googleSearchApiHost = process.env.RAPIDAPI_GOOGLE_SEARCH_HOST;
   this.googleSearchBaseUrl = `https://${this.googleSearchApiHost}`;
+  this.websiteTrafficApiHost = process.env.RAPIDAPI_WEBSITE_TRAFFIC_HOST;
+  this.websiteTrafficBaseUrl = `https://${this.websiteTrafficApiHost}`;
 
   // 🔥 Bind class methods to preserve `this`
   this.getUrlMetrics = this.getUrlMetrics.bind(this);
@@ -19,6 +21,9 @@ class SeoController {
   this.getDomainKeywords = this.getDomainKeywords.bind(this);
   this.checkGoogleRank = this.checkGoogleRank.bind(this);
   this.searchGoogle = this.searchGoogle.bind(this);
+  this.getWebsiteTraffic = this.getWebsiteTraffic.bind(this);
+  this.getWebsiteAuthority = this.getWebsiteAuthority.bind(this);
+  this.getWebsiteBacklinks = this.getWebsiteBacklinks.bind(this);
 }
 
   /**
@@ -338,6 +343,105 @@ class SeoController {
       console.error('Error searching Google:', error);
       res.status(500).json({ 
         error: 'Failed to search Google',
+        message: error.message 
+      });
+    }
+  }
+
+  /**
+   * Get website traffic data
+   */
+  async getWebsiteTraffic(req, res) {
+    try {
+      const { url, mode = 'subdomains' } = req.validatedQuery;
+      
+      const apiUrl = `${this.websiteTrafficBaseUrl}/traffic?url=${encodeURIComponent(url)}&mode=${mode}`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.websiteTrafficApiHost
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching website traffic:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch website traffic',
+        message: error.message 
+      });
+    }
+  }
+
+  /**
+   * Get website authority data
+   */
+  async getWebsiteAuthority(req, res) {
+    try {
+      const { url, mode = 'subdomains' } = req.validatedQuery;
+      
+      const apiUrl = `${this.websiteTrafficBaseUrl}/authority?url=${encodeURIComponent(url)}&mode=${mode}`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.websiteTrafficApiHost
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching website authority:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch website authority',
+        message: error.message 
+      });
+    }
+  }
+
+  /**
+   * Get website backlinks data
+   */
+  async getWebsiteBacklinks(req, res) {
+    try {
+      const { url, mode = 'subdomains' } = req.validatedQuery;
+      
+      const apiUrl = `${this.websiteTrafficBaseUrl}/backlinks?url=${encodeURIComponent(url)}&mode=${mode}`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.websiteTrafficApiHost
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching website backlinks:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch website backlinks',
         message: error.message 
       });
     }
