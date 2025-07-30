@@ -16,6 +16,8 @@ class Task {
   }
 
   static async findAll(filters = {}, userId) {
+      console.log("🔍 Task.findAll called with userId:", userId);
+
     let sql = `
       SELECT t.*, w.domain as website_domain 
       FROM tasks t 
