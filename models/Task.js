@@ -12,7 +12,7 @@ class Task {
     this.due_date = data.due_date;
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
-    this.user_id = data.user_id;
+    this.user_id = data.id;
   }
 
   static async findAll(filters = {}, userId) {
