@@ -4,51 +4,53 @@ class Client {
   constructor(data = {}) {
     this.id = data.id; // auto-incremented in DB
     this.name = data.name;
-    this.email = data.email;
-    this.phone = data.phone;
     this.city = data.city;
     this.reviews = data.reviews || 0;
+    this.phone = data.phone;
     this.website = data.website;
     this.contacted = data.contacted || false;
     this.follow_up_at = data.follow_up_at;
     this.notes = data.notes;
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
+    this.email = data.email;
     this.user_id = data.user_id;
   }
 
-static async findAll(filters = {}, userId) {
-  let sql = 'SELECT * FROM clients WHERE user_id = ?';
-  const params = [userId];
+  static async findAll(filters = {}, userId) {
+    let sql = 'SELECT * FROM clients WHERE user_id = ?';
+    const params = [userId];
 
-  if (filters.search) {
-    sql += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
-    const s = `%${filters.search}%`;
-    params.push(s, s, s);
+    if (filters.search) {
+      sql += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
+      const s = `%${filters.search}%`;
+      params.push(s, s, s);
+    }
+
+    const allowedSorts = ['created_at', 'name', 'email', 'city'];
+    let sortBy = filters.sort_by;
+    if (!allowedSorts.includes(sortBy)) sortBy = 'created_at';
+
+    let sortDir = filters.sort_dir?.toLowerCase();
+    if (!['asc', 'desc'].includes(sortDir)) sortDir = 'desc';
+
+    sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
+
+    const results = await db.query(sql, params);
+    return {
+      data: results.map(row => new Client(row)),
+      pagination: null,
+    };
   }
 
-  const allowedSorts = ['created_at', 'name', 'email', 'city'];
-  let sortBy = filters.sort_by;
-  if (!allowedSorts.includes(sortBy)) sortBy = 'created_at';
-
-  let sortDir = filters.sort_dir?.toLowerCase();
-  if (!['asc', 'desc'].includes(sortDir)) sortDir = 'desc';
-
-  sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
-
-  const results = await db.query(sql, params);
-  return {
-    data: results.map(row => new Client(row)),
-    pagination: null,
-  };
-}
-
-
-  
   static async findById(id, userId) {
     const sql = 'SELECT * FROM clients WHERE id = ? AND user_id = ?';
     const results = await db.query(sql, [id, userId]);
     return results.length ? new Client(results[0]) : null;
+  }
+
+  sanitize(value) {
+    return value === undefined ? null : value;
   }
 
   async save() {
@@ -60,13 +62,25 @@ static async findAll(filters = {}, userId) {
         this.updated_at = now;
         const sql = `
           UPDATE clients SET
-            name = ?, email = ?, phone = ?, city = ?, reviews = ?, website = ?,
-            contacted = ?, follow_up_at = ?, notes = ?, updated_at = ?
+            name = ?, city = ?, reviews = ?, phone = ?, website = ?,
+            contacted = ?, follow_up_at = ?, notes = ?, created_at = ?, updated_at = ?,
+            email = ?, user_id = ?
           WHERE id = ?
         `;
         const params = [
-          this.name, this.email, this.phone, this.city, this.reviews, this.website,
-          this.contacted, this.follow_up_at, this.notes, this.updated_at, this.id
+          this.sanitize(this.name),
+          this.sanitize(this.city),
+          this.sanitize(this.reviews),
+          this.sanitize(this.phone),
+          this.sanitize(this.website),
+          this.sanitize(this.contacted),
+          this.sanitize(this.follow_up_at),
+          this.sanitize(this.notes),
+          this.sanitize(this.created_at),
+          this.sanitize(this.updated_at),
+          this.sanitize(this.email),
+          this.sanitize(this.user_id),
+          this.sanitize(this.id)
         ];
         await db.query(sql, params);
         return this;
@@ -75,16 +89,29 @@ static async findAll(filters = {}, userId) {
 
     this.created_at = now;
     this.updated_at = now;
+
     const sql = `
       INSERT INTO clients (
-        user_id, name, email, phone, city, reviews, website,
-        contacted, follow_up_at, notes, created_at, updated_at
+        name, city, reviews, phone, website,
+        contacted, follow_up_at, notes, created_at, updated_at, email, user_id
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
+
     const params = [
-      this.user_id, this.name, this.email, this.phone, this.city, this.reviews, this.website,
-      this.contacted, this.follow_up_at, this.notes, this.created_at, this.updated_at
+      this.sanitize(this.name),
+      this.sanitize(this.city),
+      this.sanitize(this.reviews),
+      this.sanitize(this.phone),
+      this.sanitize(this.website),
+      this.sanitize(this.contacted),
+      this.sanitize(this.follow_up_at),
+      this.sanitize(this.notes),
+      this.sanitize(this.created_at),
+      this.sanitize(this.updated_at),
+      this.sanitize(this.email),
+      this.sanitize(this.user_id)
     ];
+
     const result = await db.query(sql, params);
     this.id = result.insertId;
 
