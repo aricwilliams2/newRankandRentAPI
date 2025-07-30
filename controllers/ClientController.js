@@ -15,7 +15,7 @@ class ClientController {
         per_page: req.query.per_page
       };
       
-      const result = await Client.findAll(filters);
+      const result = await Client.findAll(filters, req.user.id);
       
       res.json(result);
     } catch (error) {
