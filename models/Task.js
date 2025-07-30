@@ -17,7 +17,7 @@ class Task {
 
   static async findAll(filters = {}, userId) {
       console.log("🔍 Task.findAll called with userId:", userId);
-
+      console.log("🔍 Task.findAll called with userId:",  this.user_id);
     let sql = `
       SELECT t.*, w.domain as website_domain 
       FROM tasks t 
@@ -92,6 +92,8 @@ class Task {
 
     if (this.id) {
         console.log("🔍 Task.findAll called with userId:", userId);
+        console.log("🔍 Task.findAll called with userId:",  this.user_id);
+
 
       
       const existing = await db.query('SELECT id FROM tasks WHERE id = ?', [this.id]);
