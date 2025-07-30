@@ -19,6 +19,8 @@ class Lead {
   }
 
   static async findAll(filters = {}, userId) {
+     console.log("🔍 Task.findAll called with userId:", userId);
+        console.log("🔍 Task.findAll called with userId2:",  this.user_id);
     let sql = "SELECT * FROM leads WHERE user_id = ?";
     const params = [userId];
 
