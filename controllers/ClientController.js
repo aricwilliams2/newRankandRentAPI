@@ -50,7 +50,7 @@ class ClientController {
     try {
       // Set user_id from authenticated user token
       req.validatedData.user_id = req.user.id;
-      const client = await Client.create(req.user.id);
+      const client = await Client.create(req.validatedData);
       
       res.status(201).json(client);
     } catch (error) {
@@ -71,7 +71,7 @@ class ClientController {
         return res.status(404).json({ error: 'Client not found' });
       }
       
-      const updatedClient = await client.update(req.user.id);
+      const updatedClient = await client.update(req.validatedData);
       
       res.json(updatedClient);
     } catch (error) {
