@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require("../config/database");
 
 class Client {
   constructor(data = {}) {
@@ -18,33 +18,33 @@ class Client {
   }
 
   static async findAll(filters = {}, userId) {
-    let sql = 'SELECT * FROM clients WHERE user_id = ?';
+    let sql = "SELECT * FROM clients WHERE user_id = ?";
     const params = [userId];
 
     if (filters.search) {
-      sql += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
+      sql += " AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)";
       const s = `%${filters.search}%`;
       params.push(s, s, s);
     }
 
-    const allowedSorts = ['created_at', 'name', 'email', 'city'];
+    const allowedSorts = ["created_at", "name", "email", "city"];
     let sortBy = filters.sort_by;
-    if (!allowedSorts.includes(sortBy)) sortBy = 'created_at';
+    if (!allowedSorts.includes(sortBy)) sortBy = "created_at";
 
     let sortDir = filters.sort_dir?.toLowerCase();
-    if (!['asc', 'desc'].includes(sortDir)) sortDir = 'desc';
+    if (!["asc", "desc"].includes(sortDir)) sortDir = "desc";
 
     sql += ` ORDER BY \`${sortBy}\` ${sortDir}`;
 
     const results = await db.query(sql, params);
     return {
-      data: results.map(row => new Client(row)),
+      data: results.map((row) => new Client(row)),
       pagination: null,
     };
   }
 
   static async findById(id, userId) {
-    const sql = 'SELECT * FROM clients WHERE id = ? AND user_id = ?';
+    const sql = "SELECT * FROM clients WHERE id = ? AND user_id = ?";
     const results = await db.query(sql, [id, userId]);
     return results.length ? new Client(results[0]) : null;
   }
@@ -57,31 +57,17 @@ class Client {
     const now = new Date();
 
     if (this.id) {
-      const existing = await db.query('SELECT id FROM clients WHERE id = ?', [this.id]);
+      const existing = await db.query("SELECT id FROM clients WHERE id = ?", [this.id]);
       if (existing.length > 0) {
         this.updated_at = now;
         const sql = `
           UPDATE clients SET
             name = ?, city = ?, reviews = ?, phone = ?, website = ?,
             contacted = ?, follow_up_at = ?, notes = ?, created_at = ?, updated_at = ?,
-            email = ?, user_id = ?
+            email = ?
           WHERE id = ?
         `;
-     const params = [
-  this.name,
-  this.city,
-  this.reviews,
-  this.phone,
-  this.website,
-  this.contacted,
-  this.follow_up_at,
-  this.notes,
-  this.created_at,
-  this.updated_at,
-  this.email,
-  this.user_id,
-  this.id
-];
+        const params = [this.name, this.city, this.reviews, this.phone, this.website, this.contacted, this.follow_up_at, this.notes, this.created_at, this.updated_at, this.email, this.now, this.id];
 
         await db.query(sql, params);
         return this;
@@ -98,21 +84,20 @@ class Client {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-   const params = [
-  this.name,
-  this.city,
-  this.reviews,
-  this.phone,
-  this.website,
-  this.contacted,
-  this.follow_up_at,
-  this.notes,
-  this.created_at,
-  this.updated_at,
-  this.email,
-  this.id
-];
+    console.log("name:", this.name);
+    console.log("city:", this.city);
+    console.log("reviews:", this.reviews);
+    console.log("phone:", this.phone);
+    console.log("website:", this.website);
+    console.log("contacted:", this.contacted);
+    console.log("follow_up_at:", this.follow_up_at);
+    console.log("notes:", this.notes);
+    console.log("created_at:", this.created_at);
+    console.log("updated_at:", this.updated_at);
+    console.log("email:", this.email);
+    console.log("id:", this.id);
 
+    const params = [this.name, this.city, this.reviews, this.phone, this.website, this.contacted, this.follow_up_at, this.notes, this.created_at, this.updated_at, this.email, this.user_id];
 
     const result = await db.query(sql, params);
     this.id = result.insertId;
@@ -121,7 +106,7 @@ class Client {
   }
 
   async delete() {
-    const sql = 'DELETE FROM clients WHERE id = ? AND user_id = ?';
+    const sql = "DELETE FROM clients WHERE id = ? AND user_id = ?";
     await db.query(sql, [this.id, this.user_id]);
     return true;
   }
@@ -133,7 +118,7 @@ class Client {
 
   async update(data) {
     for (const key of Object.keys(data)) {
-      if (this.hasOwnProperty(key) && key !== 'id' && key !== 'created_at') {
+      if (this.hasOwnProperty(key) && key !== "id" && key !== "created_at") {
         this[key] = data[key];
       }
     }

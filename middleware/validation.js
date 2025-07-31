@@ -50,34 +50,34 @@ const seoValidationSchema = {
 
   websiteTraffic: Joi.object({
     url: Joi.string().domain().required().messages({
-      'string.domain': 'Please provide a valid domain name',
-      'any.required': 'URL parameter is required',
+      "string.domain": "Please provide a valid domain name",
+      "any.required": "URL parameter is required",
     }),
-    mode: Joi.string().valid('subdomains', 'exact').default('subdomains').messages({
-      'string.base': 'Mode must be a string',
-      'any.only': 'Mode must be either "subdomains" or "exact"',
+    mode: Joi.string().valid("subdomains", "exact").default("subdomains").messages({
+      "string.base": "Mode must be a string",
+      "any.only": 'Mode must be either "subdomains" or "exact"',
     }),
   }),
 
   websiteAuthority: Joi.object({
     url: Joi.string().domain().required().messages({
-      'string.domain': 'Please provide a valid domain name',
-      'any.required': 'URL parameter is required',
+      "string.domain": "Please provide a valid domain name",
+      "any.required": "URL parameter is required",
     }),
-    mode: Joi.string().valid('subdomains', 'exact').default('subdomains').messages({
-      'string.base': 'Mode must be a string',
-      'any.only': 'Mode must be either "subdomains" or "exact"',
+    mode: Joi.string().valid("subdomains", "exact").default("subdomains").messages({
+      "string.base": "Mode must be a string",
+      "any.only": 'Mode must be either "subdomains" or "exact"',
     }),
   }),
 
   websiteBacklinks: Joi.object({
     url: Joi.string().domain().required().messages({
-      'string.domain': 'Please provide a valid domain name',
-      'any.required': 'URL parameter is required',
+      "string.domain": "Please provide a valid domain name",
+      "any.required": "URL parameter is required",
     }),
-    mode: Joi.string().valid('subdomains', 'exact').default('subdomains').messages({
-      'string.base': 'Mode must be a string',
-      'any.only': 'Mode must be either "subdomains" or "exact"',
+    mode: Joi.string().valid("subdomains", "exact").default("subdomains").messages({
+      "string.base": "Mode must be a string",
+      "any.only": 'Mode must be either "subdomains" or "exact"',
     }),
   }),
 };
@@ -137,7 +137,6 @@ const clientValidationSchema = {
     contacted: Joi.boolean().default(false),
     follow_up_at: Joi.date().allow(null),
     notes: Joi.string().allow(null, ""),
-    user_id: Joi.number().integer().required(),
   }),
 
   update: Joi.object({
@@ -150,7 +149,6 @@ const clientValidationSchema = {
     contacted: Joi.boolean(),
     follow_up_at: Joi.date().allow(null),
     notes: Joi.string().allow(null, ""),
-    user_id: Joi.number().integer().required(),
   }),
 };
 
@@ -179,7 +177,7 @@ const validateLead = (type) => {
 const validateClient = (type) => {
   return (req, res, next) => {
     const schema = clientValidationSchema[type];
-    const { error, value } = schema.validate(req.body);
+    const { error, value } = schema.validate(req.body, { stripUnknown: true });
 
     if (error) {
       const errors = error.details.reduce((acc, detail) => {

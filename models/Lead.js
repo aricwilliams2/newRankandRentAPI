@@ -12,7 +12,6 @@ class Lead {
     this.reviews = data.reviews;
     this.website = data.website;
     this.contacted = data.contacted || false;
-    this.follow_up_at = data.follow_up_at;
     this.city = data.city;
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
@@ -20,8 +19,6 @@ class Lead {
   }
 
   static async findAll(filters = {}, userId) {
-    console.log("🔍 Task.findAll called with userId22:", userId);
-    console.log("🔍 Task.findAll called with userId2:", this.user_id);
     let sql = "SELECT * FROM leads WHERE user_id = ?";
     const params = [userId];
 
@@ -70,12 +67,12 @@ class Lead {
         const sql = `
   UPDATE leads SET 
     name = ?, email = ?, phone = ?, company = ?, status = ?, 
-    notes = ?, reviews = ?, website = ?, contacted = ?, follow_up_at = ?, city = ?, 
+    notes = ?, reviews = ?, website = ?, contacted = ?, city = ?, 
     updated_at = ?
   WHERE id = ?
 `;
 
-        const params = [this.name, this.email, this.phone, this.company, this.status, this.notes, this.reviews, this.website, this.contacted, this.follow_up_at, this.city, this.id];
+        const params = [this.name, this.email, this.phone, this.company, this.status, this.notes, this.reviews, this.website, this.contacted, this.city, this.now, this.id];
 
         await db.query(sql, params);
         return this;
@@ -88,11 +85,11 @@ class Lead {
     const sql = `
      INSERT INTO leads (
     name, email, phone, company, status, notes, reviews,
-    website, contacted, follow_up_at = ?, city, created_at, updated_at, user_id
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    website, contacted, city, created_at, updated_at, user_id
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
-    const params = [this.name, this.email, this.phone, this.company, this.status, this.notes, this.reviews, this.website, this.contacted, this.follow_up_at, this.city, this.created_at, this.updated_at, this.id];
+    const params = [this.name, this.email, this.phone, this.company, this.status, this.notes, this.reviews, this.website, this.contacted, this.city, this.created_at, this.updated_at, this.user_id];
 
     const result = await db.query(sql, params);
     this.id = result.insertId;
