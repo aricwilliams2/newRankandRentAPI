@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require("../config/database");
 
 class Task {
   constructor(data = {}) {
@@ -6,8 +6,8 @@ class Task {
     this.website_id = data.website_id;
     this.title = data.title;
     this.description = data.description;
-    this.status = data.status || 'todo';
-    this.priority = data.priority || 'medium';
+    this.status = data.status || "todo";
+    this.priority = data.priority || "medium";
     this.assignee = data.assignee;
     this.due_date = data.due_date;
     this.created_at = data.created_at;
@@ -16,8 +16,8 @@ class Task {
   }
 
   static async findAll(filters = {}, userId) {
-      console.log("🔍 Task.findAll called with userId:", userId);
-      console.log("🔍 Task.findAll called with userId2:",  this.user_id);
+    console.log("🔍 Task.findAll called with userId:", userId);
+    console.log("🔍 Task.findAll called with userId2:", this.user_id);
     let sql = `
       SELECT t.*, w.domain as website_domain 
       FROM tasks t 
@@ -27,45 +27,45 @@ class Task {
     const params = [userId];
 
     if (filters.status) {
-      sql += ' AND t.status = ?';
+      sql += " AND t.status = ?";
       params.push(filters.status);
     }
 
     if (filters.website_id) {
-      sql += ' AND t.website_id = ?';
+      sql += " AND t.website_id = ?";
       params.push(filters.website_id);
     }
 
     if (filters.priority) {
-      sql += ' AND t.priority = ?';
+      sql += " AND t.priority = ?";
       params.push(filters.priority);
     }
 
     if (filters.assignee) {
-      sql += ' AND t.assignee LIKE ?';
+      sql += " AND t.assignee LIKE ?";
       params.push(`%${filters.assignee}%`);
     }
 
     if (filters.search) {
-      sql += ' AND (t.title LIKE ? OR t.description LIKE ?)';
+      sql += " AND (t.title LIKE ? OR t.description LIKE ?)";
       const searchTerm = `%${filters.search}%`;
       params.push(searchTerm, searchTerm);
     }
 
-    const allowedSorts = ['created_at', 'due_date', 'title', 'priority', 'status'];
+    const allowedSorts = ["created_at", "due_date", "title", "priority", "status"];
     let sortBy = filters.sort_by;
-    if (!allowedSorts.includes(sortBy)) sortBy = 'created_at';
+    if (!allowedSorts.includes(sortBy)) sortBy = "created_at";
 
     let sortDir = filters.sort_dir?.toLowerCase();
-    if (!['asc', 'desc'].includes(sortDir)) sortDir = 'desc';
+    if (!["asc", "desc"].includes(sortDir)) sortDir = "desc";
 
     sql += ` ORDER BY t.\`${sortBy}\` ${sortDir}`;
 
     const results = await db.query(sql, params);
     return {
-      data: results.map(row => ({
+      data: results.map((row) => ({
         ...new Task(row),
-        website_domain: row.website_domain || 'No Website'
+        website_domain: row.website_domain || "No Website",
       })),
       pagination: null,
     };
@@ -81,7 +81,7 @@ class Task {
     const results = await db.query(sql, [id, userId]);
     if (results.length) {
       const task = new Task(results[0]);
-      task.website_domain = results[0].website_domain || 'No Website';
+      task.website_domain = results[0].website_domain || "No Website";
       return task;
     }
     return null;
@@ -91,12 +91,7 @@ class Task {
     const now = new Date();
 
     if (this.id) {
-        console.log("🔍 Task.findAll called with userId:", userId);
-        console.log("🔍 Task.findAll called with userId2:",  this.user_id);
-
-
-      
-      const existing = await db.query('SELECT id FROM tasks WHERE id = ?', [this.id]);
+      const existing = await db.query("SELECT id FROM tasks WHERE id = ?", [this.id]);
       if (existing.length > 0) {
         this.updated_at = now;
         const sql = `
@@ -105,10 +100,7 @@ class Task {
             priority = ?, assignee = ?, due_date = ?, updated_at = ?
           WHERE id = ?
         `;
-        const params = [
-          this.website_id, this.title, this.description, this.status,
-          this.priority, this.assignee, this.due_date, this.updated_at, this.id
-        ];
+        const params = [this.website_id, this.title, this.description, this.status, this.priority, this.assignee, this.due_date, this.updated_at, this.id];
         await db.query(sql, params);
         return this;
       }
@@ -122,18 +114,14 @@ class Task {
         assignee, due_date, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    const params = [
-      this.user_id,
-      this.website_id, this.title, this.description, this.status,
-      this.priority, this.assignee, this.due_date, this.created_at, this.updated_at
-    ];
+    const params = [this.user_id, this.website_id, this.title, this.description, this.status, this.priority, this.assignee, this.due_date, this.created_at, this.updated_at];
     const result = await db.query(sql, params);
     this.id = result.insertId;
     return this;
   }
 
   async delete() {
-    const sql = 'DELETE FROM tasks WHERE id = ? AND user_id = ?';
+    const sql = "DELETE FROM tasks WHERE id = ? AND user_id = ?";
     await db.query(sql, [this.id, this.user_id]);
     return true;
   }
@@ -145,7 +133,7 @@ class Task {
 
   async update(data) {
     for (const key of Object.keys(data)) {
-      if (this.hasOwnProperty(key) && key !== 'id' && key !== 'created_at') {
+      if (this.hasOwnProperty(key) && key !== "id" && key !== "created_at") {
         this[key] = data[key];
       }
     }
