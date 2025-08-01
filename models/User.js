@@ -42,6 +42,13 @@ class User {
     return await bcrypt.compare(password, this.password);
   }
 
+  static async updateIsPaid(id, isPaid = true) {
+    const sql = "UPDATE users SET is_paid = ?, updated_at = ? WHERE id = ?";
+    const now = new Date();
+    await db.query(sql, [isPaid, now, id]);
+    return await User.findById(id);
+  }
+
   toJSON() {
     const { password, ...userWithoutPassword } = this;
     return userWithoutPassword;
