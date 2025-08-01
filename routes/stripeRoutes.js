@@ -6,7 +6,7 @@ const User = require("../models/User"); // Adjust the path if needed
 
 // Create Checkout Session
 router.post("/create-checkout-session", async (req, res) => {
-  const { userId } = req.body;
+  const { name, email, password } = req.body;
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -20,7 +20,7 @@ router.post("/create-checkout-session", async (req, res) => {
       ],
       success_url: `https://www.rankandrenttool.com/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `https://www.rankandrenttool.com/cancel`,
-      metadata: { userId },
+      metadata: { name, email, password },
     });
 
     res.json({ url: session.url });
@@ -44,17 +44,25 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
-    const userId = session.metadata.userId;
+    const { name, email, password } = session.metadata;
+
     const customerId = session.customer;
 
     try {
-      await User.updateStripeData(userId, {
-        is_paid: true,
-        stripe_customer_id: customerId,
-      });
-      console.log(`✅ User ${userId} marked as paid in DB.`);
+      const existingUser = await User.findByEmail(email);
+      if (!existingUser) {
+        await User.create({
+          name,
+          email,
+          password, // will be hashed inside your User.create
+          stripe_customer_id: customerId,
+          is_paid: true,
+        });
+      }
+
+      console.log(`✅ Created paid user: ${email}`);
     } catch (err) {
-      console.error("❌ Error updating user:", err.message);
+      console.error("❌ Error in user creation:", err.message);
     }
   }
   if (event.type === "customer.subscription.deleted") {
