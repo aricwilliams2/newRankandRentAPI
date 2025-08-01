@@ -17,10 +17,9 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 
 app.use(cors());
-app.use("/stripe", stripeRoutes);
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/stripe", stripeRoutes);
 
 // Routes
 app.get("/api/test", (req, res) => {
