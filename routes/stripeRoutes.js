@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const User = require("../models/User"); // Adjust the path if needed
 
 // Create Checkout Session
 router.post("/create-checkout-session", async (req, res) => {
@@ -13,7 +14,7 @@ router.post("/create-checkout-session", async (req, res) => {
       payment_method_types: ["card"],
       line_items: [
         {
-          price: "price_1234", // Replace with your actual Price ID
+          price: "price_1RrKZIKggcV9qDyr8WkJu04U", // Replace with your actual Price ID
           quantity: 1,
         },
       ],
