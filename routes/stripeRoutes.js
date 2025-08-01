@@ -44,9 +44,13 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const userId = session.metadata.userId;
+    const customerId = session.customer;
 
     try {
-      await User.updateIsPaid(userId, true);
+      await User.updateStripeData(userId, {
+        is_paid: true,
+        stripe_customer_id: customerId,
+      });
       console.log(`✅ User ${userId} marked as paid in DB.`);
     } catch (err) {
       console.error("❌ Error updating user:", err.message);
@@ -56,8 +60,12 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
     const subscription = event.data.object;
     const customerId = subscription.customer;
 
-    // ❌ Downgrade or revoke access
-    await User.update({ stripeCustomerId: customerId }, { isPaid: false });
+    try {
+      await User.downgradeByCustomerId(customerId);
+      console.log(`⚠️ User with Stripe ID ${customerId} downgraded`);
+    } catch (err) {
+      console.error("❌ DB error downgrading user:", err);
+    }
   }
 
   res.json({ received: true });

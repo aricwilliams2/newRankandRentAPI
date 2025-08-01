@@ -48,6 +48,17 @@ class User {
     await db.query(sql, [isPaid, now, id]);
     return await User.findById(id);
   }
+  static async updateStripeData(id, { is_paid, stripe_customer_id }) {
+    const sql = "UPDATE users SET is_paid = ?, stripe_customer_id = ?, updated_at = ? WHERE id = ?";
+    const now = new Date();
+    await db.query(sql, [is_paid, stripe_customer_id, now, id]);
+    return await User.findById(id);
+  }
+  static async downgradeByCustomerId(stripeCustomerId) {
+    const sql = "UPDATE users SET is_paid = false, updated_at = ? WHERE stripe_customer_id = ?";
+    const now = new Date();
+    await db.query(sql, [now, stripeCustomerId]);
+  }
 
   toJSON() {
     const { password, ...userWithoutPassword } = this;
