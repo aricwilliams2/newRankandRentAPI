@@ -84,19 +84,6 @@ class Client {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    console.log("name:", this.name);
-    console.log("city:", this.city);
-    console.log("reviews:", this.reviews);
-    console.log("phone:", this.phone);
-    console.log("website:", this.website);
-    console.log("contacted:", this.contacted);
-    console.log("follow_up_at:", this.follow_up_at);
-    console.log("notes:", this.notes);
-    console.log("created_at:", this.created_at);
-    console.log("updated_at:", this.updated_at);
-    console.log("email:", this.email);
-    console.log("id:", this.id);
-
     const params = [this.name, this.city, this.reviews, this.phone, this.website, this.contacted, this.follow_up_at, this.notes, this.created_at, this.updated_at, this.email, this.user_id];
 
     const result = await db.query(sql, params);
