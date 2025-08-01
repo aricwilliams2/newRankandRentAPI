@@ -50,6 +50,8 @@ class ClientController {
     try {
       // Set user_id from authenticated user token
       req.validatedData.user_id = req.body.id;
+      console.log("User:", req.user);
+      console.log("Validated data:", req.validatedData);
       const client = await Client.create(req.validatedData);
 
       res.status(201).json(client);
@@ -65,6 +67,9 @@ class ClientController {
   async update(req, res) {
     try {
       const { id } = req.params;
+      console.log("Updating lead ID:", id);
+      console.log("User:", req.user);
+      console.log("Validated data:", req.validatedData);
       const client = await Client.findById(id, req.user.id);
 
       if (!client) {

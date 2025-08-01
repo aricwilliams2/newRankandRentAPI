@@ -72,7 +72,7 @@ class Lead {
   WHERE id = ?
 `;
 
-        const params = [this.name, this.email, this.phone, this.company, this.status, this.notes, this.reviews, this.website, this.contacted, this.city, this.now, this.id];
+        const params = [this.name, this.email, this.phone, this.company, this.status, this.notes, this.reviews, this.website, this.contacted, this.city, this.updated_at ? new Date(this.updated_at).toISOString().slice(0, 19).replace("T", " ") : null, this.id];
 
         await db.query(sql, params);
         return this;

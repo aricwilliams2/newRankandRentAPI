@@ -67,7 +67,7 @@ class Client {
             email = ?
           WHERE id = ?
         `;
-        const params = [this.name, this.city, this.reviews, this.phone, this.website, this.contacted, this.follow_up_at, this.notes, this.created_at, this.updated_at, this.email, this.now, this.id];
+        const params = [this.name, this.city, this.reviews, this.phone, this.website, this.contacted, this.follow_up_at, this.notes, this.created_at, this.updated_at ? new Date(this.updated_at).toISOString().slice(0, 19).replace("T", " ") : null, this.email, this.id];
 
         await db.query(sql, params);
         return this;
@@ -84,7 +84,7 @@ class Client {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const params = [this.name, this.city, this.reviews, this.phone, this.website, this.contacted, this.follow_up_at, this.notes, this.created_at, this.updated_at, this.email, this.user_id];
+    const params = [this.name ?? null, this.city ?? null, this.reviews ?? 0, this.phone ?? null, this.website ?? null, this.contacted ? 1 : 0, this.follow_up_at ?? null, this.notes ?? null, this.created_at ?? new Date(), this.updated_at ?? new Date(), this.email ?? null, this.user_id ?? null];
 
     const result = await db.query(sql, params);
     this.id = result.insertId;
