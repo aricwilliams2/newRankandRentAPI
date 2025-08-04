@@ -49,18 +49,29 @@ class LeadController {
    */
   async store(req, res) {
     try {
-      // Set user_id from token if authenticated, otherwise null for unauthenticated lead creation
+      // Debug logging
+      console.log('LeadController.store called with:', {
+        validatedData: req.validatedData,
+        headers: req.headers
+      });
 
-      req.validatedData.user_id = req.body.id;
+      // Check if user_id is provided in the request body
+      if (!req.validatedData.user_id) {
+        return res.status(400).json({ 
+          error: 'Missing user_id',
+          message: 'user_id is required in the request body' 
+        });
+      }
+
       const lead = await Lead.create(req.validatedData);
 
-      // Log activity
+      // Log activity (use user_id from request body)
       await Activity.logActivity(
         'lead_created',
         'New lead added',
         `Lead "${lead.name || lead.email}" was added to the system`,
         null,
-        req.user.id
+        req.validatedData.user_id
       );
 
       res.status(201).json(lead);

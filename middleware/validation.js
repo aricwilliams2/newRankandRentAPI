@@ -100,6 +100,10 @@ const backlinkValidationSchema = {
 
 const leadValidationSchema = {
   store: Joi.object({
+    user_id: Joi.number().integer().required().messages({
+      "any.required": "user_id is required",
+      "number.base": "user_id must be a number"
+    }),
     name: Joi.string().max(255).allow("", null).optional(),
     email: Joi.string().email().max(255).allow(null, ""),
     phone: Joi.string().max(20).allow("", null).optional(),
