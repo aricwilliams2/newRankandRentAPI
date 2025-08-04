@@ -63,18 +63,40 @@ class DashboardController {
    */
   async getRecentActivity(req, res) {
     try {
+      // Ensure user is authenticated
+      if (!req.user || !req.user.id) {
+        return res.status(401).json({ 
+          error: 'Authentication required',
+          message: 'User not authenticated' 
+        });
+      }
+
       const limit = parseInt(req.query.limit) || 10;
+      
+      // Debug logging
+      console.log('DashboardController.getRecentActivity called with:', { 
+        limit, 
+        userId: req.user.id,
+        user: req.user 
+      });
+      
       const activities = await Activity.findRecent(limit, req.user.id);
 
-      const formattedActivities = activities.map(activity => ({
-        id: activity.id,
-        type: activity.type,
-        title: activity.title,
-        description: activity.description,
-        website: activity.website_domain,
-        timestamp: activity.created_at,
-        timeAgo: this.getTimeAgo(activity.created_at)
-      }));
+      const formattedActivities = activities.map(activity => {
+        const activityInfo = this.getActivityInfo(activity.type);
+        return {
+          id: activity.id,
+          type: activity.type,
+          title: activity.title,
+          description: activity.description,
+          website: activity.website_domain,
+          timestamp: activity.created_at,
+          timeAgo: this.getTimeAgo(activity.created_at),
+          icon: activityInfo.icon,
+          color: activityInfo.color,
+          category: activityInfo.category
+        };
+      });
 
       res.json({
         success: true,
@@ -88,6 +110,39 @@ class DashboardController {
         message: error.message 
       });
     }
+  }
+
+  /**
+   * Helper function to get activity information
+   */
+  getActivityInfo(type) {
+    const activityTypes = {
+      // Lead activities
+      'lead_created': { icon: '👤', color: 'green', category: 'leads' },
+      'lead_updated': { icon: '✏️', color: 'blue', category: 'leads' },
+      'lead_deleted': { icon: '🗑️', color: 'red', category: 'leads' },
+      
+      // Client activities
+      'client_created': { icon: '🏢', color: 'green', category: 'clients' },
+      'client_updated': { icon: '✏️', color: 'blue', category: 'clients' },
+      'client_deleted': { icon: '🗑️', color: 'red', category: 'clients' },
+      
+      // Website activities
+      'website_created': { icon: '🌐', color: 'green', category: 'websites' },
+      'website_updated': { icon: '✏️', color: 'blue', category: 'websites' },
+      'website_deleted': { icon: '🗑️', color: 'red', category: 'websites' },
+      
+      // Task activities
+      'task_created': { icon: '📝', color: 'green', category: 'tasks' },
+      'task_updated': { icon: '✏️', color: 'blue', category: 'tasks' },
+      'task_deleted': { icon: '🗑️', color: 'red', category: 'tasks' },
+      'task_status_changed': { icon: '🔄', color: 'orange', category: 'tasks' },
+      
+      // Default
+      'default': { icon: '📋', color: 'gray', category: 'other' }
+    };
+
+    return activityTypes[type] || activityTypes['default'];
   }
 
   /**

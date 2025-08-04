@@ -3,7 +3,6 @@ const db = require("../config/database");
 class Task {
   constructor(data = {}) {
     this.id = data.id;
-    this.website_id = data.website_id;
     this.title = data.title;
     this.description = data.description;
     this.status = data.status || "todo";
@@ -17,9 +16,8 @@ class Task {
 
   static async findAll(filters = {}, userId) {
     let sql = `
-      SELECT t.*, w.domain as website_domain 
+      SELECT t.*
       FROM tasks t 
-      LEFT JOIN websites w ON t.website_id = w.id 
       WHERE t.user_id = ?
     `;
     const params = [userId];
@@ -27,11 +25,6 @@ class Task {
     if (filters.status) {
       sql += " AND t.status = ?";
       params.push(filters.status);
-    }
-
-    if (filters.website_id) {
-      sql += " AND t.website_id = ?";
-      params.push(filters.website_id);
     }
 
     if (filters.priority) {
@@ -61,26 +54,20 @@ class Task {
 
     const results = await db.query(sql, params);
     return {
-      data: results.map((row) => ({
-        ...new Task(row),
-        website_domain: row.website_domain || "No Website",
-      })),
+      data: results.map((row) => new Task(row)),
       pagination: null,
     };
   }
 
   static async findById(id, userId) {
     const sql = `
-      SELECT t.*, w.domain as website_domain 
+      SELECT t.*
       FROM tasks t 
-      LEFT JOIN websites w ON t.website_id = w.id 
       WHERE t.id = ? AND t.user_id = ?
     `;
     const results = await db.query(sql, [id, userId]);
     if (results.length) {
-      const task = new Task(results[0]);
-      task.website_domain = results[0].website_domain || "No Website";
-      return task;
+      return new Task(results[0]);
     }
     return null;
   }
@@ -94,11 +81,20 @@ class Task {
         this.updated_at = now;
         const sql = `
           UPDATE tasks SET 
-            website_id = ?, title = ?, description = ?, status = ?, 
+            title = ?, description = ?, status = ?, 
             priority = ?, assignee = ?, due_date = ?, updated_at = ?
           WHERE id = ?
         `;
-        const params = [this.website_id, this.title, this.description, this.status, this.priority, this.assignee, this.due_date, this.updated_at, this.id];
+        const params = [
+          this.title || null, 
+          this.description || null, 
+          this.status || null, 
+          this.priority || null, 
+          this.assignee || null, 
+          this.due_date || null, 
+          this.updated_at, 
+          this.id
+        ];
         await db.query(sql, params);
         return this;
       }
@@ -108,11 +104,21 @@ class Task {
     this.updated_at = now;
     const sql = `
       INSERT INTO tasks (
-        user_id, website_id, title, description, status, priority, 
+        user_id, title, description, status, priority, 
         assignee, due_date, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    const params = [this.user_id, this.website_id, this.title, this.description, this.status, this.priority, this.assignee, this.due_date, this.created_at, this.updated_at];
+    const params = [
+      this.user_id, 
+      this.title || null, 
+      this.description || null, 
+      this.status || null, 
+      this.priority || null, 
+      this.assignee || null, 
+      this.due_date || null, 
+      this.created_at, 
+      this.updated_at
+    ];
     const result = await db.query(sql, params);
     this.id = result.insertId;
     return this;

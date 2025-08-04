@@ -1,4 +1,5 @@
 const Lead = require("../models/Lead");
+const Activity = require("../models/Activity");
 
 class LeadController {
   /**
@@ -53,6 +54,15 @@ class LeadController {
       req.validatedData.user_id = req.body.id;
       const lead = await Lead.create(req.validatedData);
 
+      // Log activity
+      await Activity.logActivity(
+        'lead_created',
+        'New lead added',
+        `Lead "${lead.name || lead.email}" was added to the system`,
+        null,
+        req.user.id
+      );
+
       res.status(201).json(lead);
     } catch (error) {
       console.error("Error creating lead:", error);
@@ -74,6 +84,15 @@ class LeadController {
 
       const updatedLead = await lead.update(req.validatedData);
 
+      // Log activity
+      await Activity.logActivity(
+        'lead_updated',
+        'Lead updated',
+        `Lead "${updatedLead.name || updatedLead.email}" was updated`,
+        null,
+        req.user.id
+      );
+
       res.json(updatedLead);
     } catch (error) {
       console.error("Error updating lead:", error);
@@ -94,6 +113,15 @@ class LeadController {
       }
 
       await lead.delete();
+
+      // Log activity
+      await Activity.logActivity(
+        'lead_deleted',
+        'Lead deleted',
+        `Lead "${lead.name || lead.email}" was deleted from the system`,
+        null,
+        req.user.id
+      );
 
       res.json({ message: "Lead deleted successfully" });
     } catch (error) {

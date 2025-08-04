@@ -14,6 +14,14 @@ class Activity {
   }
 
   static async findRecent(limit = 10, userId) {
+    // Ensure limit is a valid number
+    const validLimit = parseInt(limit) || 10;
+    
+    // Ensure userId is valid
+    if (!userId || isNaN(userId)) {
+      throw new Error('Invalid user ID provided');
+    }
+    
     const sql = `
       SELECT a.*, w.domain as website_domain 
       FROM activity_log a 
@@ -22,7 +30,12 @@ class Activity {
       ORDER BY a.created_at DESC 
       LIMIT ?
     `;
-    const results = await db.query(sql, [userId, limit]);
+    
+    // Debug logging
+    console.log('Activity.findRecent called with:', { limit, userId, validLimit });
+    console.log('SQL params:', [parseInt(userId), validLimit]);
+    
+    const results = await db.query(sql, [parseInt(userId), validLimit]);
     return results.map(row => ({
       ...new Activity(row),
       website_domain: row.website_domain

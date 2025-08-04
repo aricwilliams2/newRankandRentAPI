@@ -1,4 +1,5 @@
 const Client = require("../models/Client");
+const Activity = require("../models/Activity");
 
 class ClientController {
   /**
@@ -54,6 +55,15 @@ class ClientController {
       console.log("Validated data:", req.validatedData);
       const client = await Client.create(req.validatedData);
 
+      // Log activity
+      await Activity.logActivity(
+        'client_created',
+        'New client added',
+        `Client "${client.name || client.website}" was added to the system`,
+        null,
+        req.user.id
+      );
+
       res.status(201).json(client);
     } catch (error) {
       console.error("Error creating client:", error);
@@ -78,6 +88,15 @@ class ClientController {
 
       const updatedClient = await client.update(req.validatedData);
 
+      // Log activity
+      await Activity.logActivity(
+        'client_updated',
+        'Client updated',
+        `Client "${updatedClient.name || updatedClient.website}" was updated`,
+        null,
+        req.user.id
+      );
+
       res.json(updatedClient);
     } catch (error) {
       console.error("Error updating client:", error);
@@ -98,6 +117,15 @@ class ClientController {
       }
 
       await client.delete();
+
+      // Log activity
+      await Activity.logActivity(
+        'client_deleted',
+        'Client deleted',
+        `Client "${client.name || client.website}" was deleted from the system`,
+        null,
+        req.user.id
+      );
 
       res.json({ message: "Client deleted successfully" });
     } catch (error) {

@@ -9,7 +9,6 @@ class TaskController {
     try {
       const filters = {
         status: req.query.status,
-        website_id: req.query.website_id,
         priority: req.query.priority,
         assignee: req.query.assignee,
         search: req.query.search,
@@ -33,7 +32,7 @@ class TaskController {
   async show(req, res) {
     try {
       const { id } = req.params;
-      const task = await Task.findById(id);
+      const task = await Task.findById(id, req.user.id);
       
       if (!task) {
         return res.status(404).json({ error: 'Task not found' });
@@ -60,7 +59,7 @@ class TaskController {
         'task_created',
         'New task created',
         `Task "${task.title}" was created`,
-        task.website_id,
+        null,
         req.user.id
       );
       
@@ -77,7 +76,7 @@ class TaskController {
   async update(req, res) {
     try {
       const { id } = req.params;
-      const task = await Task.findById(id);
+      const task = await Task.findById(id, req.user.id);
       
       if (!task) {
         return res.status(404).json({ error: 'Task not found' });
@@ -92,7 +91,7 @@ class TaskController {
           'task_status_changed',
           'Task status updated',
           `Task "${updatedTask.title}" status changed from ${oldStatus} to ${updatedTask.status}`,
-          updatedTask.website_id,
+          null,
           req.user.id
         );
       }
@@ -110,7 +109,7 @@ class TaskController {
   async destroy(req, res) {
     try {
       const { id } = req.params;
-      const task = await Task.findById(id);
+      const task = await Task.findById(id, req.user.id);
       
       if (!task) {
         return res.status(404).json({ error: 'Task not found' });
@@ -123,7 +122,7 @@ class TaskController {
         'task_deleted',
         'Task deleted',
         `Task "${task.title}" was deleted`,
-        task.website_id,
+        null,
         req.user.id
       );
       
