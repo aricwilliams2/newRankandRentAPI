@@ -42,6 +42,7 @@ class Activity {
     const params = [
       activity.user_id,
       activity.type, activity.title, activity.description,
+      activity.website_id,
       activity.metadata ? JSON.stringify(activity.metadata) : null,
       activity.created_at
     ];
