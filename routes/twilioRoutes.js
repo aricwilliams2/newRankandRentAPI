@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const client = require('../config/twilioClient');
-const auth = require('../middleware/auth');
+const { authenticate: auth } = require('../middleware/auth');
 const TwilioCallLog = require('../models/TwilioCallLog');
 
 // Buy a phone number

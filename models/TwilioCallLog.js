@@ -25,7 +25,7 @@ class TwilioCallLog {
 
     static async create(callData) {
         try {
-            const [result] = await db.execute(
+            const result = await db.query(
                 `INSERT INTO twilio_call_logs 
                 (user_id, call_sid, from_number, to_number, status, direction, price, price_unit, 
                 recording_url, recording_sid, recording_duration, recording_channels, recording_status, 
@@ -59,7 +59,7 @@ class TwilioCallLog {
 
     static async update(callSid, updateData) {
         try {
-            const [result] = await db.execute(
+            const result = await db.query(
                 `UPDATE twilio_call_logs 
                 SET status = ?, direction = ?, price = ?, price_unit = ?, 
                 recording_url = ?, recording_sid = ?, recording_duration = ?, 
@@ -103,7 +103,7 @@ class TwilioCallLog {
             const offset = (page - 1) * limit;
             params.push(limit, offset);
 
-            const [rows] = await db.execute(query, params);
+            const rows = await db.query(query, params);
             return rows.map(row => new TwilioCallLog(row));
         } catch (error) {
             console.error('Error finding Twilio call logs by user ID:', error);
@@ -113,7 +113,7 @@ class TwilioCallLog {
 
     static async findByCallSid(callSid) {
         try {
-            const [rows] = await db.execute(
+            const rows = await db.query(
                 'SELECT * FROM twilio_call_logs WHERE call_sid = ?',
                 [callSid]
             );
@@ -126,7 +126,7 @@ class TwilioCallLog {
 
     static async getCallStats(userId) {
         try {
-            const [rows] = await db.execute(
+            const rows = await db.query(
                 `SELECT 
                     COUNT(*) as total_calls,
                     COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_calls,
@@ -149,7 +149,7 @@ class TwilioCallLog {
 
     static async getRecentCalls(userId, limit = 10) {
         try {
-            const [rows] = await db.execute(
+            const rows = await db.query(
                 `SELECT * FROM twilio_call_logs 
                 WHERE user_id = ? 
                 ORDER BY created_at DESC 
