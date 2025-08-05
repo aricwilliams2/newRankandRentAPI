@@ -11,6 +11,7 @@ const websiteRoutes = require("./routes/websiteRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const stripeRoutes = require("./routes/stripeRoutes");
 const callLogRoutes = require("./routes/callLogRoutes");
+const twilioRoutes = require("./routes/twilioRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +37,7 @@ app.use("/api", dashboardRoutes);
 app.use("/api", websiteRoutes);
 app.use("/api", taskRoutes);
 app.use("/api", callLogRoutes);
+app.use("/api/twilio", twilioRoutes);
 
 // API endpoints documentation
 app.get("/api/endpoints", (req, res) => {
@@ -276,6 +278,78 @@ app.get("/api/endpoints", (req, res) => {
       method: "GET",
       path: "/api/seo-health",
       description: "Check RapidAPI connectivity status",
+    },
+
+    // Twilio endpoints
+    {
+      method: "POST",
+      path: "/api/twilio/buy-number",
+      description: "Purchase a phone number from Twilio",
+      required_fields: "phoneNumber or areaCode",
+      optional_fields: "country",
+      auth_required: true,
+    },
+    {
+      method: "GET",
+      path: "/api/twilio/available-numbers",
+      description: "Get available phone numbers for purchase",
+      optional_parameters: "areaCode, country, limit",
+      auth_required: true,
+    },
+    {
+      method: "POST",
+      path: "/api/twilio/call",
+      description: "Make a call from the browser",
+      required_fields: "to",
+      optional_fields: "from, record, twimlUrl",
+      auth_required: true,
+    },
+    {
+      method: "POST",
+      path: "/api/twilio/twiml",
+      description: "TwiML endpoint for call handling (internal)",
+    },
+    {
+      method: "POST",
+      path: "/api/twilio/status-callback",
+      description: "Call status callback webhook (internal)",
+    },
+    {
+      method: "POST",
+      path: "/api/twilio/recording-callback",
+      description: "Recording callback webhook (internal)",
+    },
+    {
+      method: "GET",
+      path: "/api/twilio/recordings/:callSid",
+      description: "Get recordings for a specific call",
+      auth_required: true,
+    },
+    {
+      method: "GET",
+      path: "/api/twilio/recordings",
+      description: "Get all recordings for a user",
+      optional_parameters: "page, limit",
+      auth_required: true,
+    },
+    {
+      method: "GET",
+      path: "/api/twilio/call-logs",
+      description: "Get call logs for a user",
+      optional_parameters: "page, limit, status",
+      auth_required: true,
+    },
+    {
+      method: "GET",
+      path: "/api/twilio/call-logs/:callSid",
+      description: "Get a specific call log",
+      auth_required: true,
+    },
+    {
+      method: "DELETE",
+      path: "/api/twilio/recordings/:recordingSid",
+      description: "Delete a recording",
+      auth_required: true,
     },
   ];
 

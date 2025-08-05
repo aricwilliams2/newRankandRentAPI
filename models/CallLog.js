@@ -3,13 +3,37 @@ const db = require("../config/database");
 class CallLog {
   constructor(data = {}) {
     this.id = data.id;
+    this.user_id = data.user_id;
     this.lead_id = data.lead_id;
     this.outcome = data.outcome; // 'follow_up_1_day', 'follow_up_72_hours', 'follow_up_next_week', 'follow_up_next_month', 'follow_up_3_months'
     this.notes = data.notes;
     this.next_follow_up = data.next_follow_up;
-    this.duration = data.duration; // in seconds
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
+  }
+
+  static async findByUserId(userId, options = {}) {
+    const { page = 1, limit = 20, status } = options;
+    const offset = (page - 1) * limit;
+    
+    let whereClause = "WHERE user_id = ?";
+    let params = [userId];
+    
+    if (status) {
+      whereClause += " AND status = ?";
+      params.push(status);
+    }
+    
+    const sql = `
+      SELECT * FROM call_logs 
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    
+    params.push(limit, offset);
+    const results = await db.query(sql, params);
+    return results.map(row => new CallLog(row));
   }
 
   static async findByLeadId(leadId) {
@@ -21,6 +45,8 @@ class CallLog {
     const results = await db.query(sql, [leadId]);
     return results.map(row => new CallLog(row));
   }
+
+
 
   static async findById(id) {
     const sql = "SELECT * FROM call_logs WHERE id = ?";
@@ -45,17 +71,16 @@ class CallLog {
     
     const sql = `
       INSERT INTO call_logs (
-        lead_id, outcome, notes, next_follow_up, duration, 
-        created_at, updated_at
+        user_id, lead_id, outcome, notes, next_follow_up, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     
     const params = [
+      data.user_id,
       data.lead_id,
       data.outcome,
       data.notes,
       nextFollowUp,
-      data.duration || 0,
       now,
       now
     ];
@@ -81,8 +106,7 @@ class CallLog {
     
     const sql = `
       UPDATE call_logs SET 
-        outcome = ?, notes = ?, next_follow_up = ?, 
-        duration = ?, updated_at = ?
+        outcome = ?, notes = ?, next_follow_up = ?, updated_at = ?
       WHERE id = ?
     `;
     
@@ -90,7 +114,6 @@ class CallLog {
       data.outcome || this.outcome,
       data.notes || this.notes,
       nextFollowUp,
-      data.duration || this.duration,
       now,
       this.id
     ];
@@ -116,6 +139,17 @@ class CallLog {
     `;
     const results = await db.query(sql, [limit]);
     return results.map(row => new CallLog(row));
+  }
+
+  static async getCallStats(userId) {
+    const sql = `
+      SELECT 
+        COUNT(*) as total_calls
+      FROM call_logs 
+      WHERE user_id = ?
+    `;
+    const results = await db.query(sql, [userId]);
+    return results[0];
   }
 }
 

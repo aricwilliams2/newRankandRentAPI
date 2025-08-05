@@ -13,6 +13,9 @@ This is a Node.js API converted from PHP Laravel, providing full CRUD operations
 - ✅ MySQL database integration
 - ✅ RESTful API design
 - ✅ Error handling
+- ✅ **Twilio Integration** - Buy numbers, make calls, record calls, playback recordings
+- ✅ **SEO & Keyword Research** - Comprehensive SEO analysis tools
+- ✅ **Stripe Integration** - Payment processing
 
 ## Installation
 
@@ -91,6 +94,17 @@ npm run dev
 - `POST /api/tasks` - Create a new task
 - `PUT /api/tasks/:id` - Update a task
 - `DELETE /api/tasks/:id` - Delete a task
+
+### Twilio Integration
+
+- `POST /api/twilio/buy-number` - Purchase a phone number from Twilio
+- `GET /api/twilio/available-numbers` - Get available phone numbers for purchase
+- `POST /api/twilio/call` - Make a call from the browser
+- `GET /api/twilio/call-logs` - Get call logs for a user
+- `GET /api/twilio/call-logs/:callSid` - Get a specific call log
+- `GET /api/twilio/recordings` - Get all recordings for a user
+- `GET /api/twilio/recordings/:callSid` - Get recordings for a specific call
+- `DELETE /api/twilio/recordings/:recordingSid` - Delete a recording
 
 ### SEO API Query Parameters
 
@@ -329,6 +343,43 @@ Content-Type: application/json
 }
 ```
 
+#### Buy a phone number:
+```bash
+POST /api/twilio/buy-number
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "areaCode": "415",
+  "country": "US"
+}
+```
+
+#### Make a call:
+```bash
+POST /api/twilio/call
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "to": "+1234567890",
+  "from": "+1987654321",
+  "record": true
+}
+```
+
+#### Get call logs:
+```bash
+GET /api/twilio/call-logs?page=1&limit=20&status=completed
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+#### Get recordings:
+```bash
+GET /api/twilio/recordings?page=1&limit=20
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
 ## Environment Variables
 
 Copy the `.env` file and configure:
@@ -345,8 +396,24 @@ Copy the `.env` file and configure:
 - `RAPIDAPI_BACKLINKS_HOST` - RapidAPI host for backlinks (backlinks-and-keywords-fetcher.p.rapidapi.com)
 - `RAPIDAPI_RANK_CHECKER_HOST` - RapidAPI host for rank checking (google-rank-checker-by-keyword.p.rapidapi.com)
 - `RAPIDAPI_GOOGLE_SEARCH_HOST` - RapidAPI host for Google search (google-search122.p.rapidapi.com)
+- `TWILIO_ACCOUNT_SID` - Your Twilio Account SID
+- `TWILIO_AUTH_TOKEN` - Your Twilio Auth Token
+- `TWILIO_PHONE_NUMBER` - Your Twilio phone number
+- `TWILIO_APP_SID` - Your Twilio TwiML App SID
+- `SERVER_URL` - Your server URL for webhooks (e.g., https://your-api-url.com)
 
 ## Database Schema
+
+The application uses MySQL database with the following main tables:
+
+- `users` - User accounts and authentication
+- `leads` - Lead management and contact information
+- `clients` - Client information and relationships
+- `websites` - Website tracking and SEO data
+- `tasks` - Task management and scheduling
+- `call_logs` - Call tracking and follow-up management (general call logs)
+- `twilio_call_logs` - Twilio-specific call logs with detailed call information
+- `activities` - User activity logging
 
 The leads table includes:
 - `id` (UUID primary key)
