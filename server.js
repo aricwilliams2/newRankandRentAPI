@@ -10,6 +10,7 @@ const authRoutes = require("./routes/authRoutes");
 const websiteRoutes = require("./routes/websiteRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const stripeRoutes = require("./routes/stripeRoutes");
+const callLogRoutes = require("./routes/callLogRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +35,7 @@ app.use("/api", clientRoutes);
 app.use("/api", dashboardRoutes);
 app.use("/api", websiteRoutes);
 app.use("/api", taskRoutes);
+app.use("/api", callLogRoutes);
 
 // API endpoints documentation
 app.get("/api/endpoints", (req, res) => {

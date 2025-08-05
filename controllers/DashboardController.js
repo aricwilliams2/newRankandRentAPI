@@ -138,6 +138,11 @@ class DashboardController {
       'task_deleted': { icon: '🗑️', color: 'red', category: 'tasks' },
       'task_status_changed': { icon: '🔄', color: 'orange', category: 'tasks' },
       
+      // Call log activities
+      'call_log_created': { icon: '📞', color: 'green', category: 'calls' },
+      'call_log_updated': { icon: '✏️', color: 'blue', category: 'calls' },
+      'call_log_deleted': { icon: '🗑️', color: 'red', category: 'calls' },
+      
       // Default
       'default': { icon: '📋', color: 'gray', category: 'other' }
     };

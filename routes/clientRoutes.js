@@ -7,7 +7,7 @@ const { validateClient } = require("../middleware/validation");
 // Client routes
 router.get("/clients", authenticate, ClientController.index);
 router.get("/clients/:id", authenticate, ClientController.show);
-router.post("/clients", validateClient("store"), ClientController.store);
+router.post("/clients", authenticate, validateClient("store"), ClientController.store);
 router.put("/clients/:id", authenticate, validateClient("update"), ClientController.update);
 router.delete("/clients/:id", authenticate, ClientController.destroy);
 
