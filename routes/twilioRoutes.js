@@ -313,11 +313,20 @@ router.post('/twiml', (req, res) => {
   
   console.log(`Call - Direction: ${direction}, From: ${from}, To: ${to}, Called: ${called}, Caller: ${caller}`);
   
-  // For outbound API calls, we want to connect the caller to the target number
-  if (direction === 'outbound-api') {
-    // The 'To' field contains the target number we want to call
+  // Handle browser-to-phone calls (from Twilio Voice SDK)
+  if (to && to.startsWith('+')) {
+    console.log(`Browser calling phone number: ${to}`);
+    const dial = twiml.dial({
+      callerId: from, // Use user's purchased number as caller ID
+      record: 'record-from-answer-dual',
+      recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
+      recordingStatusCallbackEvent: ['completed']
+    });
+    dial.number(to);
+  } else if (direction === 'outbound-api') {
+    // Handle legacy API calls (if still used)
     if (to) {
-      console.log(`Connecting outbound call to: ${to}`);
+      console.log(`API calling phone number: ${to}`);
       const dial = twiml.dial({ 
         record: 'record-from-answer-dual',
         recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
@@ -590,6 +599,58 @@ router.get('/call-logs/:callSid', auth, async (req, res) => {
     console.error('Error fetching call log:', err);
     res.status(500).json({ 
       error: 'Failed to fetch call log',
+      details: err.message 
+    });
+  }
+});
+
+// Generate Twilio Access Token for browser calling
+router.post('/access-token', auth, async (req, res) => {
+  try {
+    const { identity } = req.body;
+    const userId = req.user.id;
+    
+    // Get user's active phone numbers
+    const userNumbers = await UserPhoneNumber.findActiveByUserId(userId);
+    if (userNumbers.length === 0) {
+      return res.status(400).json({ 
+        error: 'No phone numbers available. Please purchase a phone number first.' 
+      });
+    }
+
+    const AccessToken = require('twilio').jwt.AccessToken;
+    const VoiceGrant = AccessToken.VoiceGrant;
+
+    // Create access token
+    const accessToken = new AccessToken(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_API_KEY,
+      process.env.TWILIO_API_SECRET,
+      { identity: identity || `user_${userId}` }
+    );
+
+    // Create voice grant
+    const voiceGrant = new VoiceGrant({
+      outgoingApplicationSid: process.env.TWILIO_APP_SID,
+      incomingAllow: true
+    });
+
+    accessToken.addGrant(voiceGrant);
+
+    res.json({
+      success: true,
+      token: accessToken.toJwt(),
+      identity: identity || `user_${userId}`,
+      availableNumbers: userNumbers.map(num => ({
+        phoneNumber: num.phone_number,
+        friendlyName: num.friendly_name
+      }))
+    });
+
+  } catch (err) {
+    console.error('Error generating access token:', err);
+    res.status(500).json({ 
+      error: 'Failed to generate access token',
       details: err.message 
     });
   }
