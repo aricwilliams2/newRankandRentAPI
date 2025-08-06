@@ -373,6 +373,8 @@ router.post('/status-callback', async (req, res) => {
 // Recording callback
 router.post('/recording-callback', async (req, res) => {
   try {
+    console.log('🎙️ Recording callback received:', req.body);
+    
     const { 
       RecordingUrl, 
       RecordingSid, 
@@ -382,8 +384,21 @@ router.post('/recording-callback', async (req, res) => {
       RecordingStatus 
     } = req.body;
 
-    // Update call log with recording information
-    await TwilioCallLog.update(CallSid, {
+    if (!CallSid) {
+      console.error('❌ Recording callback missing CallSid');
+      return res.sendStatus(400);
+    }
+
+    console.log(`📞 Processing recording for call ${CallSid}:`, {
+      RecordingSid,
+      RecordingStatus,
+      RecordingDuration,
+      RecordingChannels,
+      RecordingUrl: RecordingUrl ? 'Present' : 'Missing'
+    });
+
+    // Update call log with only recording information (not status fields)
+    const updated = await TwilioCallLog.update(CallSid, {
       recording_url: RecordingUrl,
       recording_sid: RecordingSid,
       recording_duration: RecordingDuration,
@@ -391,12 +406,57 @@ router.post('/recording-callback', async (req, res) => {
       recording_status: RecordingStatus
     });
 
-    console.log(`Recording ready for call ${CallSid}: ${RecordingUrl}`);
+    if (updated) {
+      console.log(`✅ Recording saved for call ${CallSid}: ${RecordingUrl}`);
+    } else {
+      console.warn(`⚠️ No call log found to update for CallSid: ${CallSid}`);
+    }
+    
     res.sendStatus(200);
 
   } catch (err) {
-    console.error('Error processing recording callback:', err);
+    console.error('❌ Error processing recording callback:', err);
     res.sendStatus(500);
+  }
+});
+
+// Get call logs with recordings for debugging
+router.get('/call-logs-with-recordings', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get recent call logs that have recordings
+    const callLogs = await TwilioCallLog.findByUserId(userId, 1, 10);
+    const callsWithRecordings = callLogs.filter(call => call.recording_url);
+    
+    res.json({
+      success: true,
+      message: `Found ${callsWithRecordings.length} calls with recordings out of ${callLogs.length} total calls`,
+      callsWithRecordings: callsWithRecordings.map(call => ({
+        call_sid: call.call_sid,
+        from_number: call.from_number,
+        to_number: call.to_number,
+        status: call.status,
+        duration: call.duration,
+        recording_url: call.recording_url,
+        recording_sid: call.recording_sid,
+        recording_duration: call.recording_duration,
+        recording_status: call.recording_status,
+        created_at: call.created_at
+      })),
+      allCalls: callLogs.map(call => ({
+        call_sid: call.call_sid,
+        status: call.status,
+        has_recording: !!call.recording_url
+      }))
+    });
+
+  } catch (err) {
+    console.error('Error fetching calls with recordings:', err);
+    res.status(500).json({ 
+      error: 'Failed to fetch calls with recordings',
+      details: err.message 
+    });
   }
 });
 

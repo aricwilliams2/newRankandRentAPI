@@ -64,28 +64,30 @@ class TwilioCallLog {
 
     static async update(callSid, updateData) {
         try {
+            // Build dynamic query with only provided fields
+            const fields = [];
+            const values = [];
+            
+            // Only update fields that are actually provided
+            Object.keys(updateData).forEach(key => {
+                if (updateData[key] !== undefined) {
+                    fields.push(`${key} = ?`);
+                    values.push(this._sanitizeValue(updateData[key]));
+                }
+            });
+            
+            // Always update timestamp
+            fields.push('updated_at = CURRENT_TIMESTAMP');
+            values.push(callSid);
+            
+            if (fields.length === 1) { // Only timestamp field
+                console.log('No fields to update for call:', callSid);
+                return false;
+            }
+            
             const result = await db.query(
-                `UPDATE twilio_call_logs 
-                SET status = ?, direction = ?, price = ?, price_unit = ?, 
-                recording_url = ?, recording_sid = ?, recording_duration = ?, 
-                recording_channels = ?, recording_status = ?, duration = ?, 
-                start_time = ?, end_time = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE call_sid = ?`,
-                [
-                    this._sanitizeValue(updateData.status),
-                    this._sanitizeValue(updateData.direction),
-                    this._sanitizeValue(updateData.price),
-                    this._sanitizeValue(updateData.price_unit),
-                    this._sanitizeValue(updateData.recording_url),
-                    this._sanitizeValue(updateData.recording_sid),
-                    this._sanitizeValue(updateData.recording_duration),
-                    this._sanitizeValue(updateData.recording_channels),
-                    this._sanitizeValue(updateData.recording_status),
-                    this._sanitizeValue(updateData.duration),
-                    this._sanitizeValue(updateData.start_time),
-                    this._sanitizeValue(updateData.end_time),
-                    callSid
-                ]
+                `UPDATE twilio_call_logs SET ${fields.join(', ')} WHERE call_sid = ?`,
+                values
             );
             return result.affectedRows > 0;
         } catch (error) {
