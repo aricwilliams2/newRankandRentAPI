@@ -720,6 +720,9 @@ router.get('/recording/:recordingSid', auth, async (req, res) => {
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Content-Disposition', `inline; filename="recording-${recordingSid}.mp3"`);
     res.setHeader('Cache-Control', 'private, max-age=3600'); // Cache for 1 hour
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow CORS for audio
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     
     // Stream the audio data to client
     response.data.pipe(res);
