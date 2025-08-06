@@ -4,6 +4,7 @@ class TwilioCallLog {
     constructor(data) {
         this.id = data.id;
         this.user_id = data.user_id;
+        this.phone_number_id = data.phone_number_id;
         this.call_sid = data.call_sid;
         this.from_number = data.from_number;
         this.to_number = data.to_number;
@@ -30,24 +31,25 @@ class TwilioCallLog {
 
     static async create(callData) {
         try {
-            const result = await db.query(
-                `INSERT INTO twilio_call_logs 
-                (user_id, call_sid, from_number, to_number, status, direction, price, price_unit, 
-                recording_url, recording_sid, recording_duration, recording_channels, recording_status, 
-                duration, start_time, end_time) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                    this._sanitizeValue(callData.user_id),
-                    this._sanitizeValue(callData.call_sid),
-                    this._sanitizeValue(callData.from_number),
-                    this._sanitizeValue(callData.to_number),
-                    this._sanitizeValue(callData.status),
-                    this._sanitizeValue(callData.direction),
-                    this._sanitizeValue(callData.price),
-                    this._sanitizeValue(callData.price_unit),
-                    this._sanitizeValue(callData.recording_url),
-                    this._sanitizeValue(callData.recording_sid),
-                    this._sanitizeValue(callData.recording_duration),
+                    const result = await db.query(
+            `INSERT INTO twilio_call_logs 
+            (user_id, phone_number_id, call_sid, from_number, to_number, status, direction, price, price_unit, 
+            recording_url, recording_sid, recording_duration, recording_channels, recording_status, 
+            duration, start_time, end_time) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                this._sanitizeValue(callData.user_id),
+                this._sanitizeValue(callData.phone_number_id),
+                this._sanitizeValue(callData.call_sid),
+                this._sanitizeValue(callData.from_number),
+                this._sanitizeValue(callData.to_number),
+                this._sanitizeValue(callData.status),
+                this._sanitizeValue(callData.direction),
+                this._sanitizeValue(callData.price),
+                this._sanitizeValue(callData.price_unit),
+                this._sanitizeValue(callData.recording_url),
+                this._sanitizeValue(callData.recording_sid),
+                this._sanitizeValue(callData.recording_duration),
                     this._sanitizeValue(callData.recording_channels),
                     this._sanitizeValue(callData.recording_status),
                     this._sanitizeValue(callData.duration),

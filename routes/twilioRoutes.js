@@ -223,6 +223,8 @@ router.post('/call', auth, async (req, res) => {
 
     let fromNumber = from;
     
+    let userPhoneNumber;
+    
     // If no 'from' number specified, use user's first active number
     if (!fromNumber) {
       const userNumbers = await UserPhoneNumber.findActiveByUserId(userId);
@@ -231,11 +233,12 @@ router.post('/call', auth, async (req, res) => {
           error: 'No phone numbers available. Please purchase a phone number first.' 
         });
       }
-      fromNumber = userNumbers[0].phone_number;
+      userPhoneNumber = userNumbers[0];
+      fromNumber = userPhoneNumber.phone_number;
     } else {
       // Verify the user owns the 'from' number
-      const userNumber = await UserPhoneNumber.findByPhoneNumber(fromNumber);
-      if (!userNumber || userNumber.user_id !== userId || !userNumber.is_active) {
+      userPhoneNumber = await UserPhoneNumber.findByPhoneNumber(fromNumber);
+      if (!userPhoneNumber || userPhoneNumber.user_id !== userId || !userPhoneNumber.is_active) {
         return res.status(403).json({ 
           error: 'You do not own this phone number or it is inactive' 
         });
@@ -265,6 +268,7 @@ router.post('/call', auth, async (req, res) => {
     // Log the call attempt (handle undefined values)
     await TwilioCallLog.create({
       user_id: userId,
+      phone_number_id: userPhoneNumber.id,
       call_sid: call.sid,
       from_number: call.from,
       to_number: call.to,
@@ -500,40 +504,66 @@ router.get('/recordings/:callSid', auth, async (req, res) => {
   }
 });
 
-// Get all recordings for a user
+// Get all recordings for a user (from database with proper associations)
 router.get('/recordings', auth, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
+    const userId = req.user.id;
     
-    const recordings = await client.recordings.list({
-      limit: parseInt(limit),
-      pageSize: parseInt(limit)
-    });
+    // Get call logs with recordings from database
+    const callLogs = await TwilioCallLog.findByUserId(userId, parseInt(page), parseInt(limit));
+    
+    // Filter only calls that have recordings and map to recording format
+    const recordings = callLogs
+      .filter(call => call.recording_url && call.recording_sid)
+      .map(call => ({
+        id: call.id,
+        userId: call.user_id,
+        callSid: call.call_sid,
+        recordingSid: call.recording_sid,
+        phoneNumberId: call.phone_number_id,
+        duration: call.recording_duration,
+        channels: call.recording_channels,
+        status: call.recording_status,
+        priceUnit: call.price_unit,
+        recordingUrl: call.recording_url,
+        mediaUrl: `${process.env.SERVER_URL}/api/twilio/recording/${call.recording_sid}`,
+        createdAt: call.created_at,
+        updatedAt: call.updated_at,
+        // Call context
+        fromNumber: call.from_number,
+        toNumber: call.to_number,
+        callDuration: call.duration,
+        callStatus: call.status
+      }));
+
+    // Get phone number stats for context
+    const phoneNumberStats = await UserPhoneNumber.getUserPhoneNumberStats(userId);
 
     res.json({
       success: true,
-      recordings: recordings.map(recording => ({
-        sid: recording.sid,
-        callSid: recording.callSid,
-        duration: recording.duration,
-        channels: recording.channels,
-        status: recording.status,
-        uri: recording.uri,
-        dateCreated: recording.dateCreated,
-        mediaUrl: `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Recordings/${recording.sid}/Media`
-      })),
+      recordings: recordings,
+      phoneNumberStats: {
+        total_numbers: phoneNumberStats.total_numbers || 0,
+        active_numbers: phoneNumberStats.active_numbers || 0,
+        total_purchase_cost: phoneNumberStats.total_purchase_cost || "0.0000",
+        total_monthly_cost: phoneNumberStats.total_monthly_cost || "0.0000"
+      },
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
         total: recordings.length
-      }
+      },
+      loading: false,
+      error: null
     });
 
   } catch (err) {
     console.error('Error fetching recordings:', err);
     res.status(500).json({ 
       error: 'Failed to fetch recordings',
-      details: err.message 
+      details: err.message,
+      loading: false
     });
   }
 });
@@ -653,6 +683,66 @@ router.post('/access-token', auth, async (req, res) => {
       error: 'Failed to generate access token',
       details: err.message 
     });
+  }
+});
+
+// Proxy endpoint to stream recordings without authentication prompts
+router.get('/recording/:recordingSid', auth, async (req, res) => {
+  try {
+    const { recordingSid } = req.params;
+    const userId = req.user.id;
+    
+    // Verify the user owns this recording by checking call logs
+    const callLogs = await TwilioCallLog.findByUserId(userId, 1, 1000);
+    const recordingExists = callLogs.some(call => call.recording_sid === recordingSid);
+    
+    if (!recordingExists) {
+      return res.status(403).json({ 
+        error: 'Access denied. Recording not found or does not belong to user.' 
+      });
+    }
+
+    // Construct Twilio recording URL
+    const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Recordings/${recordingSid}.mp3`;
+
+    // Fetch recording from Twilio with authentication
+    const axios = require('axios');
+    const response = await axios.get(recordingUrl, {
+      auth: {
+        username: process.env.TWILIO_ACCOUNT_SID,
+        password: process.env.TWILIO_AUTH_TOKEN
+      },
+      responseType: 'stream',
+      timeout: 30000 // 30 second timeout
+    });
+
+    // Set appropriate headers for audio streaming
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Disposition', `inline; filename="recording-${recordingSid}.mp3"`);
+    res.setHeader('Cache-Control', 'private, max-age=3600'); // Cache for 1 hour
+    
+    // Stream the audio data to client
+    response.data.pipe(res);
+
+  } catch (err) {
+    console.error('Error streaming recording:', err);
+    
+    if (err.response?.status === 404) {
+      return res.status(404).json({ 
+        error: 'Recording not found',
+        details: 'The requested recording does not exist or has been deleted.' 
+      });
+    } else if (err.response?.status === 401) {
+      return res.status(500).json({ 
+        error: 'Authentication failed with Twilio',
+        details: 'Invalid Twilio credentials.' 
+      });
+    } else {
+      return res.status(500).json({ 
+        error: 'Failed to fetch recording',
+        details: err.message 
+      });
+    }
   }
 });
 
