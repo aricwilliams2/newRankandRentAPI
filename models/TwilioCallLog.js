@@ -23,6 +23,11 @@ class TwilioCallLog {
         this.updated_at = data.updated_at;
     }
 
+    // Helper function to convert undefined to null for MySQL
+    static _sanitizeValue(value) {
+        return value === undefined ? null : value;
+    }
+
     static async create(callData) {
         try {
             const result = await db.query(
@@ -32,22 +37,22 @@ class TwilioCallLog {
                 duration, start_time, end_time) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    callData.user_id,
-                    callData.call_sid,
-                    callData.from_number,
-                    callData.to_number,
-                    callData.status,
-                    callData.direction,
-                    callData.price,
-                    callData.price_unit,
-                    callData.recording_url,
-                    callData.recording_sid,
-                    callData.recording_duration,
-                    callData.recording_channels,
-                    callData.recording_status,
-                    callData.duration,
-                    callData.start_time,
-                    callData.end_time
+                    this._sanitizeValue(callData.user_id),
+                    this._sanitizeValue(callData.call_sid),
+                    this._sanitizeValue(callData.from_number),
+                    this._sanitizeValue(callData.to_number),
+                    this._sanitizeValue(callData.status),
+                    this._sanitizeValue(callData.direction),
+                    this._sanitizeValue(callData.price),
+                    this._sanitizeValue(callData.price_unit),
+                    this._sanitizeValue(callData.recording_url),
+                    this._sanitizeValue(callData.recording_sid),
+                    this._sanitizeValue(callData.recording_duration),
+                    this._sanitizeValue(callData.recording_channels),
+                    this._sanitizeValue(callData.recording_status),
+                    this._sanitizeValue(callData.duration),
+                    this._sanitizeValue(callData.start_time),
+                    this._sanitizeValue(callData.end_time)
                 ]
             );
             return result.insertId;
@@ -67,18 +72,18 @@ class TwilioCallLog {
                 start_time = ?, end_time = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE call_sid = ?`,
                 [
-                    updateData.status,
-                    updateData.direction,
-                    updateData.price,
-                    updateData.price_unit,
-                    updateData.recording_url,
-                    updateData.recording_sid,
-                    updateData.recording_duration,
-                    updateData.recording_channels,
-                    updateData.recording_status,
-                    updateData.duration,
-                    updateData.start_time,
-                    updateData.end_time,
+                    this._sanitizeValue(updateData.status),
+                    this._sanitizeValue(updateData.direction),
+                    this._sanitizeValue(updateData.price),
+                    this._sanitizeValue(updateData.price_unit),
+                    this._sanitizeValue(updateData.recording_url),
+                    this._sanitizeValue(updateData.recording_sid),
+                    this._sanitizeValue(updateData.recording_duration),
+                    this._sanitizeValue(updateData.recording_channels),
+                    this._sanitizeValue(updateData.recording_status),
+                    this._sanitizeValue(updateData.duration),
+                    this._sanitizeValue(updateData.start_time),
+                    this._sanitizeValue(updateData.end_time),
                     callSid
                 ]
             );
@@ -99,9 +104,12 @@ class TwilioCallLog {
                 params.push(status);
             }
 
-            query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-            const offset = (page - 1) * limit;
-            params.push(limit, offset);
+            // Convert to integers and use direct string interpolation for LIMIT/OFFSET
+            const limitInt = parseInt(limit);
+            const pageInt = parseInt(page);
+            const offset = (pageInt - 1) * limitInt;
+            
+            query += ` ORDER BY created_at DESC LIMIT ${limitInt} OFFSET ${offset}`;
 
             const rows = await db.query(query, params);
             return rows.map(row => new TwilioCallLog(row));
@@ -149,12 +157,13 @@ class TwilioCallLog {
 
     static async getRecentCalls(userId, limit = 10) {
         try {
+            const limitInt = parseInt(limit);
             const rows = await db.query(
                 `SELECT * FROM twilio_call_logs 
                 WHERE user_id = ? 
                 ORDER BY created_at DESC 
-                LIMIT ?`,
-                [userId, limit]
+                LIMIT ${limitInt}`,
+                [userId]
             );
             return rows.map(row => new TwilioCallLog(row));
         } catch (error) {
