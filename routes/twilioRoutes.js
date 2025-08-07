@@ -5,6 +5,46 @@ const { authenticate: auth } = require('../middleware/auth');
 const TwilioCallLog = require('../models/TwilioCallLog');
 const UserPhoneNumber = require('../models/UserPhoneNumber');
 
+// Generate Twilio Voice Access Token for browser calling
+router.get('/access-token', auth, (req, res) => {
+  try {
+    const AccessToken = require('twilio').jwt.AccessToken;
+    const VoiceGrant = AccessToken.VoiceGrant;
+    
+    console.log('🎫 Generating access token for user:', req.user.id);
+    
+    const token = new AccessToken(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_API_KEY,
+      process.env.TWILIO_API_SECRET,
+      { identity: `user-${req.user.id}` }
+    );
+    
+    // Add voice grant
+    const voiceGrant = new VoiceGrant({
+      outgoingApplicationSid: process.env.TWILIO_TWIML_APP_SID,
+      incomingAllow: true
+    });
+    
+    token.addGrant(voiceGrant);
+    
+    const jwt = token.toJwt();
+    console.log('✅ Access token generated successfully');
+    
+    res.json({ 
+      token: jwt,
+      identity: `user-${req.user.id}`
+    });
+    
+  } catch (error) {
+    console.error('❌ Error generating access token:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate access token',
+      details: error.message 
+    });
+  }
+});
+
 // Buy a phone number for the authenticated user
 router.post('/buy-number', auth, async (req, res) => {
   try {
@@ -211,158 +251,8 @@ router.get('/available-numbers', auth, async (req, res) => {
   }
 });
 
-// Make a call using user's purchased number
-router.post('/call', auth, async (req, res) => {
-  try {
-    const { to, from, record = true, twimlUrl } = req.body;
-    const userId = req.user.id;
-    
-    console.log('📞 Call request received:', {
-      to,
-      from,
-      record,
-      twimlUrl,
-      userId
-    });
-    
-    if (!to) {
-      return res.status(400).json({ error: 'Recipient number is required' });
-    }
-
-    let fromNumber = from;
-    
-    let userPhoneNumber;
-    
-    // If no 'from' number specified, use user's first active number
-    if (!fromNumber) {
-      const userNumbers = await UserPhoneNumber.findActiveByUserId(userId);
-      if (userNumbers.length === 0) {
-        return res.status(400).json({ 
-          error: 'No phone numbers available. Please purchase a phone number first.' 
-        });
-      }
-      userPhoneNumber = userNumbers[0];
-      fromNumber = userPhoneNumber.phone_number;
-    } else {
-      // Verify the user owns the 'from' number
-      userPhoneNumber = await UserPhoneNumber.findByPhoneNumber(fromNumber);
-      if (!userPhoneNumber || userPhoneNumber.user_id !== userId || !userPhoneNumber.is_active) {
-        return res.status(403).json({ 
-          error: 'You do not own this phone number or it is inactive' 
-        });
-      }
-    }
-
-    console.log('📱 Phone number info:', {
-      fromNumber,
-      userPhoneNumber: userPhoneNumber ? {
-        id: userPhoneNumber.id,
-        phone_number: userPhoneNumber.phone_number,
-        is_active: userPhoneNumber.is_active
-      } : null
-    });
-
-    const callParams = {
-      url: twimlUrl || `${process.env.SERVER_URL}/api/twilio/twiml`,
-      to: to,
-      from: fromNumber,
-      record: record,
-      recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
-      recordingStatusCallbackEvent: ['completed'],
-      statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
-      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-      statusCallbackMethod: 'POST'
-    };
-
-    console.log('🔧 Call parameters:', callParams);
-    console.log('🌐 Server URL:', process.env.SERVER_URL);
-
-    // For local development, add a fallback TwiML
-    if (process.env.NODE_ENV === 'development' && process.env.SERVER_URL.includes('localhost')) {
-      console.warn('⚠️  LOCAL DEVELOPMENT: Twilio webhooks will not work with localhost');
-      console.log('💡 Use ngrok or deploy to test webhooks properly');
-    }
-
-    console.log('🚀 Attempting to create Twilio call...');
-    
-    // Check environment variables
-    console.log('🔍 Environment check:', {
-      hasAccountSid: !!process.env.TWILIO_ACCOUNT_SID,
-      hasAuthToken: !!process.env.TWILIO_AUTH_TOKEN,
-      hasServerUrl: !!process.env.SERVER_URL,
-      serverUrl: process.env.SERVER_URL
-    });
-    
-    const call = await client.calls.create(callParams);
-
-    // Log the call attempt (handle undefined values)
-    await TwilioCallLog.create({
-      user_id: userId,
-      phone_number_id: userPhoneNumber.id,
-      call_sid: call.sid,
-      from_number: call.from,
-      to_number: call.to,
-      status: call.status,
-      direction: call.direction || null,
-      duration: call.duration || 0,
-      price: call.price || null,
-      price_unit: call.priceUnit || null
-    });
-
-    res.json({
-      success: true,
-      message: 'Call initiated successfully',
-      callSid: call.sid,
-      status: call.status,
-      from: call.from,
-      to: call.to
-    });
-
-  } catch (err) {
-    console.error('❌ Error making call:', err);
-    console.error('❌ Error details:', {
-      message: err.message,
-      code: err.code,
-      status: err.status,
-      moreInfo: err.moreInfo
-    });
-    
-    // Check for specific Twilio error types
-    if (err.code === 20003) {
-      return res.status(400).json({ 
-        error: 'Authentication failed',
-        details: 'Invalid Twilio credentials. Please check your Account SID and Auth Token.'
-      });
-    } else if (err.code === 21211) {
-      return res.status(400).json({ 
-        error: 'Invalid phone number',
-        details: 'The phone number format is invalid. Please use E.164 format (e.g., +1234567890).'
-      });
-    } else if (err.code === 21214) {
-      return res.status(400).json({ 
-        error: 'Invalid "to" phone number',
-        details: 'The destination phone number is invalid or not supported.'
-      });
-    } else if (err.code === 21215) {
-      return res.status(400).json({ 
-        error: 'Invalid "from" phone number',
-        details: 'The source phone number is invalid or not owned by your account.'
-      });
-    } else if (err.message && err.message.includes('transform')) {
-      return res.status(400).json({ 
-        error: 'Invalid call parameters',
-        details: 'The call parameters could not be processed. Please check phone numbers and URLs.',
-        twilioError: err.message
-      });
-    }
-    
-    res.status(500).json({ 
-      error: 'Failed to initiate call',
-      details: err.message,
-      code: err.code
-    });
-  }
-});
+// Browser calling only - server-side call endpoint removed
+// All calls now go through Twilio Voice SDK in the browser
 
 // TwiML endpoint for call handling
 router.post('/twiml', (req, res) => {
