@@ -749,6 +749,91 @@ router.get('/recording/:recordingSid', auth, async (req, res) => {
   }
 });
 
+// Proxy endpoint for audio elements that can't send custom headers
+router.get('/recording-audio/:recordingSid', async (req, res) => {
+  try {
+    const { recordingSid } = req.params;
+    const { token } = req.query;
+    
+    if (!token) {
+      return res.status(401).json({ 
+        error: 'Access denied',
+        message: 'No token provided' 
+      });
+    }
+
+    // Verify the token
+    const jwt = require('jsonwebtoken');
+    const User = require('../models/User');
+    const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    
+    if (!user) {
+      return res.status(401).json({ 
+        error: 'Access denied',
+        message: 'Invalid token' 
+      });
+    }
+
+    // Verify the user owns this recording by checking call logs
+    const callLogs = await TwilioCallLog.findByUserId(user.id, 1, 1000);
+    const recordingExists = callLogs.some(call => call.recording_sid === recordingSid);
+    
+    if (!recordingExists) {
+      return res.status(403).json({ 
+        error: 'Access denied. Recording not found or does not belong to user.' 
+      });
+    }
+
+    // Construct Twilio recording URL
+    const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Recordings/${recordingSid}.mp3`;
+
+    // Fetch recording from Twilio with authentication
+    const axios = require('axios');
+    const response = await axios.get(recordingUrl, {
+      auth: {
+        username: process.env.TWILIO_ACCOUNT_SID,
+        password: process.env.TWILIO_AUTH_TOKEN
+      },
+      responseType: 'stream',
+      timeout: 30000 // 30 second timeout
+    });
+
+    // Set appropriate headers for audio streaming
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Disposition', `inline; filename="recording-${recordingSid}.mp3"`);
+    res.setHeader('Cache-Control', 'private, max-age=3600'); // Cache for 1 hour
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow CORS for audio
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    
+    // Stream the audio data to client
+    response.data.pipe(res);
+
+  } catch (err) {
+    console.error('Error streaming recording:', err);
+    
+    if (err.response?.status === 404) {
+      return res.status(404).json({ 
+        error: 'Recording not found',
+        details: 'The requested recording does not exist or has been deleted.' 
+      });
+    } else if (err.response?.status === 401) {
+      return res.status(500).json({ 
+        error: 'Authentication failed with Twilio',
+        details: 'Invalid Twilio credentials.' 
+      });
+    } else {
+      return res.status(500).json({ 
+        error: 'Failed to fetch recording',
+        details: err.message 
+      });
+    }
+  }
+});
+
 // Delete a recording
 router.delete('/recordings/:recordingSid', auth, async (req, res) => {
   try {
