@@ -6,7 +6,7 @@ const TwilioCallLog = require('../models/TwilioCallLog');
 const UserPhoneNumber = require('../models/UserPhoneNumber');
 
 // Generate Twilio Voice Access Token for browser calling
-router.get('/access-token', auth, (req, res) => {
+router.get('/access-token', auth, async (req, res) => {
   try {
     console.log('🎫 Generating access token for user:', req.user.id);
     
@@ -26,6 +26,15 @@ router.get('/access-token', auth, (req, res) => {
       return res.status(500).json({ 
         error: 'Missing Twilio credentials',
         details: 'TWILIO_ACCOUNT_SID, TWILIO_API_KEY, or TWILIO_API_SECRET not set'
+      });
+    }
+    
+    // Check if user has active phone numbers
+    const userNumbers = await UserPhoneNumber.findActiveByUserId(req.user.id);
+    if (userNumbers.length === 0) {
+      return res.status(400).json({ 
+        error: 'No active phone numbers found',
+        details: 'Please purchase a phone number before making calls'
       });
     }
     
@@ -52,7 +61,11 @@ router.get('/access-token', auth, (req, res) => {
     
     res.json({ 
       token: jwt,
-      identity: `user-${req.user.id}`
+      identity: `user-${req.user.id}`,
+      availableNumbers: userNumbers.map(num => ({
+        phoneNumber: num.phone_number,
+        friendlyName: num.friendly_name
+      }))
     });
     
   } catch (error) {
@@ -274,67 +287,114 @@ router.get('/available-numbers', auth, async (req, res) => {
 // All calls now go through Twilio Voice SDK in the browser
 
 // TwiML endpoint for call handling
-router.post('/twiml', (req, res) => {
-  const VoiceResponse = require('twilio').twiml.VoiceResponse;
-  const twiml = new VoiceResponse();
+router.post('/twiml', async (req, res) => {
+  try {
+    const VoiceResponse = require('twilio').twiml.VoiceResponse;
+    const twiml = new VoiceResponse();
 
-  // Log the request for debugging
-  console.log('TwiML request received:', {
-    body: req.body,
-    query: req.query
-  });
-
-  // Extract call parameters
-  const to = req.body.To || req.query.To;
-  const from = req.body.From || req.query.From;
-  const direction = req.body.Direction || req.query.Direction;
-  const called = req.body.Called || req.query.Called;
-  const caller = req.body.Caller || req.query.Caller;
-  
-  console.log(`Call - Direction: ${direction}, From: ${from}, To: ${to}, Called: ${called}, Caller: ${caller}`);
-  
-  // Handle browser-to-phone calls (from Twilio Voice SDK)
-  if (to && to.startsWith('+')) {
-    console.log(`Browser calling phone number: ${to}`);
-    const dial = twiml.dial({
-      callerId: from, // Use user's purchased number as caller ID
-      record: 'record-from-answer-dual',
-      recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
-      recordingStatusCallbackEvent: ['completed']
+    // Log the request for debugging
+    console.log('🎙️ TwiML request received:', {
+      body: req.body,
+      query: req.query
     });
-    dial.number(to);
-  } else if (direction === 'outbound-api') {
-    // Handle legacy API calls (if still used)
-    if (to) {
-      console.log(`API calling phone number: ${to}`);
-      const dial = twiml.dial({ 
+
+    // Extract call parameters
+    const to = req.body.To || req.query.To;
+    const from = req.body.From || req.query.From;
+    const direction = req.body.Direction || req.query.Direction;
+    const called = req.body.Called || req.query.Called;
+    const caller = req.body.Caller || req.query.Caller;
+    const callSid = req.body.CallSid || req.query.CallSid;
+    
+    console.log(`📞 Call - Direction: ${direction}, From: ${from}, To: ${to}, Called: ${called}, Caller: ${caller}, CallSid: ${callSid}`);
+    
+    // Handle browser-to-phone calls (from Twilio Voice SDK)
+    if (to && to.startsWith('+')) {
+      console.log(`🎙️ Browser calling phone number: ${to}`);
+      
+      // Create call log entry for browser calls
+      if (callSid && from && to) {
+        try {
+          // Find the user by the from number
+          const userPhoneNumber = await UserPhoneNumber.findByPhoneNumber(from);
+          if (userPhoneNumber) {
+            await TwilioCallLog.create({
+              call_sid: callSid,
+              user_id: userPhoneNumber.user_id,
+              phone_number_id: userPhoneNumber.id,
+              from_number: from,
+              to_number: to,
+              direction: 'outbound',
+              status: 'initiated',
+              record: true
+            });
+            console.log(`✅ Call log created for browser call: ${callSid}`);
+          }
+        } catch (logError) {
+          console.error('❌ Error creating call log:', logError);
+          // Continue with call even if logging fails
+        }
+      }
+      
+      const dial = twiml.dial({
+        callerId: from, // Use user's purchased number as caller ID
         record: 'record-from-answer-dual',
         recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
-        recordingStatusCallbackEvent: ['completed']
+        recordingStatusCallbackEvent: ['completed'],
+        statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
+        statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+        statusCallbackMethod: 'POST'
       });
       dial.number(to);
+      
+    } else if (direction === 'outbound-api') {
+      // Handle legacy API calls (if still used)
+      if (to) {
+        console.log(`📞 API calling phone number: ${to}`);
+        const dial = twiml.dial({ 
+          record: 'record-from-answer-dual',
+          recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
+          recordingStatusCallbackEvent: ['completed'],
+          statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
+          statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+          statusCallbackMethod: 'POST'
+        });
+        dial.number(to);
+      } else {
+        twiml.say('I\'m sorry, there was an error connecting your call. Please try again.');
+        twiml.hangup();
+      }
+    } else if (direction === 'inbound') {
+      // Handle inbound calls to your Twilio number
+      twiml.say('Hello! Thank you for calling.');
+      twiml.pause({ length: 1 });
+      twiml.say('This is a Twilio phone system. Goodbye!');
     } else {
-      twiml.say('I\'m sorry, there was an error connecting your call. Please try again.');
-      twiml.hangup();
+      // Default response for unknown calls
+      console.log('⚠️ Unknown call direction or missing parameters');
+      twiml.say('Hello! This is your Twilio phone system.');
+      twiml.pause({ length: 1 });
+      twiml.say('Thank you for calling. Goodbye!');
     }
-  } else if (direction === 'inbound') {
-    // Handle inbound calls to your Twilio number
-    twiml.say('Hello! Thank you for calling.');
-    twiml.pause({ length: 1 });
-    twiml.say('This is a Twilio phone system. Goodbye!');
-  } else {
-    // Default response
-    console.log('Unknown call direction or missing parameters');
-    twiml.say('Hello! This is your Twilio phone system.');
-    twiml.pause({ length: 1 });
-    twiml.say('Thank you for calling. Goodbye!');
+
+    const twimlResponse = twiml.toString();
+    console.log('📋 TwiML response:', twimlResponse);
+
+    res.type('text/xml');
+    res.send(twimlResponse);
+    
+  } catch (error) {
+    console.error('❌ Error in TwiML endpoint:', error);
+    
+    // Return a basic TwiML response even on error
+    const VoiceResponse = require('twilio').twiml.VoiceResponse;
+    const twiml = new VoiceResponse();
+    twiml.say('I\'m sorry, there was an error processing your call. Please try again.');
+    twiml.hangup();
+    
+    res.type('text/xml');
+    res.send(twiml.toString());
   }
-
-  const twimlResponse = twiml.toString();
-  console.log('TwiML response:', twimlResponse);
-
-  res.type('text/xml');
-  res.send(twimlResponse);
 });
 
 // Call status callback
