@@ -8,10 +8,29 @@ const UserPhoneNumber = require('../models/UserPhoneNumber');
 // Generate Twilio Voice Access Token for browser calling
 router.get('/access-token', auth, (req, res) => {
   try {
+    console.log('🎫 Generating access token for user:', req.user.id);
+    
+    // Check environment variables
+    console.log('🔍 Environment check:', {
+      hasAccountSid: !!process.env.TWILIO_ACCOUNT_SID,
+      hasApiKey: !!process.env.TWILIO_API_KEY,
+      hasApiSecret: !!process.env.TWILIO_API_SECRET,
+      hasTwiMLAppSid: !!process.env.TWILIO_TWIML_APP_SID,
+      hasAppSid: !!process.env.TWILIO_APP_SID,
+      accountSid: process.env.TWILIO_ACCOUNT_SID?.substring(0, 10) + '...',
+      apiKey: process.env.TWILIO_API_KEY?.substring(0, 10) + '...',
+      twiMLAppSid: process.env.TWILIO_TWIML_APP_SID?.substring(0, 10) + '...'
+    });
+    
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_API_KEY || !process.env.TWILIO_API_SECRET) {
+      return res.status(500).json({ 
+        error: 'Missing Twilio credentials',
+        details: 'TWILIO_ACCOUNT_SID, TWILIO_API_KEY, or TWILIO_API_SECRET not set'
+      });
+    }
+    
     const AccessToken = require('twilio').jwt.AccessToken;
     const VoiceGrant = AccessToken.VoiceGrant;
-    
-    console.log('🎫 Generating access token for user:', req.user.id);
     
     const token = new AccessToken(
       process.env.TWILIO_ACCOUNT_SID,
@@ -22,7 +41,7 @@ router.get('/access-token', auth, (req, res) => {
     
     // Add voice grant
     const voiceGrant = new VoiceGrant({
-      outgoingApplicationSid: process.env.TWILIO_TWIML_APP_SID,
+      outgoingApplicationSid: process.env.TWILIO_TWIML_APP_SID || process.env.TWILIO_APP_SID,
       incomingAllow: true
     });
     
