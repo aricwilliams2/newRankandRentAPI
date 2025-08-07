@@ -217,6 +217,14 @@ router.post('/call', auth, async (req, res) => {
     const { to, from, record = true, twimlUrl } = req.body;
     const userId = req.user.id;
     
+    console.log('📞 Call request received:', {
+      to,
+      from,
+      record,
+      twimlUrl,
+      userId
+    });
+    
     if (!to) {
       return res.status(400).json({ error: 'Recipient number is required' });
     }
@@ -245,6 +253,15 @@ router.post('/call', auth, async (req, res) => {
       }
     }
 
+    console.log('📱 Phone number info:', {
+      fromNumber,
+      userPhoneNumber: userPhoneNumber ? {
+        id: userPhoneNumber.id,
+        phone_number: userPhoneNumber.phone_number,
+        is_active: userPhoneNumber.is_active
+      } : null
+    });
+
     const callParams = {
       url: twimlUrl || `${process.env.SERVER_URL}/api/twilio/twiml`,
       to: to,
@@ -257,12 +274,25 @@ router.post('/call', auth, async (req, res) => {
       statusCallbackMethod: 'POST'
     };
 
+    console.log('🔧 Call parameters:', callParams);
+    console.log('🌐 Server URL:', process.env.SERVER_URL);
+
     // For local development, add a fallback TwiML
     if (process.env.NODE_ENV === 'development' && process.env.SERVER_URL.includes('localhost')) {
       console.warn('⚠️  LOCAL DEVELOPMENT: Twilio webhooks will not work with localhost');
       console.log('💡 Use ngrok or deploy to test webhooks properly');
     }
 
+    console.log('🚀 Attempting to create Twilio call...');
+    
+    // Check environment variables
+    console.log('🔍 Environment check:', {
+      hasAccountSid: !!process.env.TWILIO_ACCOUNT_SID,
+      hasAuthToken: !!process.env.TWILIO_AUTH_TOKEN,
+      hasServerUrl: !!process.env.SERVER_URL,
+      serverUrl: process.env.SERVER_URL
+    });
+    
     const call = await client.calls.create(callParams);
 
     // Log the call attempt (handle undefined values)
@@ -289,10 +319,47 @@ router.post('/call', auth, async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error making call:', err);
+    console.error('❌ Error making call:', err);
+    console.error('❌ Error details:', {
+      message: err.message,
+      code: err.code,
+      status: err.status,
+      moreInfo: err.moreInfo
+    });
+    
+    // Check for specific Twilio error types
+    if (err.code === 20003) {
+      return res.status(400).json({ 
+        error: 'Authentication failed',
+        details: 'Invalid Twilio credentials. Please check your Account SID and Auth Token.'
+      });
+    } else if (err.code === 21211) {
+      return res.status(400).json({ 
+        error: 'Invalid phone number',
+        details: 'The phone number format is invalid. Please use E.164 format (e.g., +1234567890).'
+      });
+    } else if (err.code === 21214) {
+      return res.status(400).json({ 
+        error: 'Invalid "to" phone number',
+        details: 'The destination phone number is invalid or not supported.'
+      });
+    } else if (err.code === 21215) {
+      return res.status(400).json({ 
+        error: 'Invalid "from" phone number',
+        details: 'The source phone number is invalid or not owned by your account.'
+      });
+    } else if (err.message && err.message.includes('transform')) {
+      return res.status(400).json({ 
+        error: 'Invalid call parameters',
+        details: 'The call parameters could not be processed. Please check phone numbers and URLs.',
+        twilioError: err.message
+      });
+    }
+    
     res.status(500).json({ 
       error: 'Failed to initiate call',
-      details: err.message 
+      details: err.message,
+      code: err.code
     });
   }
 });
