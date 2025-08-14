@@ -330,10 +330,12 @@ router.post('/twiml', async (req, res) => {
     const normalizedTo = normalizePhoneNumber(to);
     const normalizedFrom = normalizePhoneNumber(from);
     
-    const isBrowserCall = normalizedTo && normalizedTo.startsWith('+') && 
-                         normalizedFrom && normalizedFrom.startsWith('+') && 
-                         direction === 'inbound';
-    const isLegacyApiCall = direction === 'outbound-api';
+         // Browser calls have 'client:' in the Caller field and come from Twilio Voice SDK
+     const isBrowserCall = direction === 'inbound' && 
+                          caller && caller.startsWith('client:') && 
+                          normalizedTo && normalizedTo.startsWith('+') && 
+                          normalizedFrom && normalizedFrom.startsWith('+');
+     const isLegacyApiCall = direction === 'outbound-api';
     
          if (isBrowserCall || isLegacyApiCall) {
        console.log(`🎙️ Browser/API calling phone number: ${to} (normalized: ${normalizedTo})`);
@@ -391,7 +393,7 @@ router.post('/twiml', async (req, res) => {
         twiml.say('I\'m sorry, there was an error connecting your call. Please try again.');
         twiml.hangup();
       }
-         } else if (direction === 'inbound' && !from?.startsWith('+')) {
+         } else if (direction === 'inbound' && !caller?.startsWith('client:')) {
        // Handle real inbound calls to your Twilio number (someone calling your number)
        console.log(`📞 Real inbound call received to: ${called}`);
        
