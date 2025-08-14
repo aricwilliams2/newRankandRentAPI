@@ -309,7 +309,7 @@ router.post('/twiml', async (req, res) => {
     console.log(`📞 Call - Direction: ${direction}, From: ${from}, To: ${to}, Called: ${called}, Caller: ${caller}, CallSid: ${callSid}`);
     
     // Handle browser-to-phone calls (from Twilio Voice SDK)
-    if (to && to.startsWith('+')) {
+    if (to && to.startsWith('+') && direction !== 'inbound') {
       console.log(`🎙️ Browser calling phone number: ${to}`);
       
       // Create call log entry for browser calls
@@ -377,6 +377,13 @@ router.post('/twiml', async (req, res) => {
           
           if (forwarding && forwarding.is_active) {
             console.log(`🔄 Call forwarding active: ${called} -> ${forwarding.forward_to_number}`);
+            console.log(`📋 Forwarding details:`, {
+              phone_number_id: forwarding.phone_number_id,
+              forward_to_number: forwarding.forward_to_number,
+              forwarding_type: forwarding.forwarding_type,
+              ring_timeout: forwarding.ring_timeout,
+              is_active: forwarding.is_active
+            });
             
             // Create call log entry for inbound call
             if (callSid) {
@@ -410,6 +417,7 @@ router.post('/twiml', async (req, res) => {
                 statusCallbackMethod: 'POST',
                 timeout: forwarding.ring_timeout || 20
               });
+              console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number}`);
               dial.number(forwarding.forward_to_number);
             } else {
               // For other forwarding types, we could implement more complex logic
@@ -424,6 +432,7 @@ router.post('/twiml', async (req, res) => {
                 statusCallbackMethod: 'POST',
                 timeout: forwarding.ring_timeout || 20
               });
+              console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number}`);
               dial.number(forwarding.forward_to_number);
             }
           } else {
