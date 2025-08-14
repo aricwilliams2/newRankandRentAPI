@@ -311,47 +311,68 @@ router.post('/twiml', async (req, res) => {
     // Handle browser-to-phone calls (from Twilio Voice SDK)
     // Browser calls can come as 'inbound' direction when using Voice SDK
     // We distinguish by checking if 'from' is a phone number (browser call) vs real inbound call
-    const isBrowserCall = to && to.startsWith('+') && from && from.startsWith('+') && direction === 'inbound';
+    // Normalize phone numbers for comparison (remove formatting)
+    const normalizePhoneNumber = (phone) => {
+      if (!phone) return null;
+      // Remove all non-digit characters except +
+      let normalized = phone.replace(/[^\d+]/g, '');
+      // If it's a 10-digit US number without +, add +1
+      if (normalized.length === 10 && !normalized.startsWith('+')) {
+        normalized = '+1' + normalized;
+      }
+      // If it's an 11-digit US number starting with 1, add +
+      if (normalized.length === 11 && normalized.startsWith('1') && !normalized.startsWith('+')) {
+        normalized = '+' + normalized;
+      }
+      return normalized;
+    };
+    
+    const normalizedTo = normalizePhoneNumber(to);
+    const normalizedFrom = normalizePhoneNumber(from);
+    
+    const isBrowserCall = normalizedTo && normalizedTo.startsWith('+') && 
+                         normalizedFrom && normalizedFrom.startsWith('+') && 
+                         direction === 'inbound';
     const isLegacyApiCall = direction === 'outbound-api';
     
-    if (isBrowserCall || isLegacyApiCall) {
-      console.log(`🎙️ Browser/API calling phone number: ${to}`);
-      
-             // Create call log entry for browser calls
+         if (isBrowserCall || isLegacyApiCall) {
+       console.log(`🎙️ Browser/API calling phone number: ${to} (normalized: ${normalizedTo})`);
+       
+       // Create call log entry for browser calls
        if (callSid && from && to) {
          try {
            // Find the user by the from number
            console.log(`🔍 Looking up user for phone number: ${from}`);
            const userPhoneNumber = await UserPhoneNumber.findByPhoneNumber(from);
-          if (userPhoneNumber) {
-            await TwilioCallLog.create({
-              call_sid: callSid,
-              user_id: userPhoneNumber.user_id,
-              phone_number_id: userPhoneNumber.id,
-              from_number: from,
-              to_number: to,
-              direction: 'outbound',
-              status: 'initiated',
-              record: true
-            });
-            console.log(`✅ Call log created for browser call: ${callSid}`);
-          }
-        } catch (logError) {
-          console.error('❌ Error creating call log:', logError);
-          // Continue with call even if logging fails
-        }
-      }
-      
-      const dial = twiml.dial({
-        callerId: from, // Use user's purchased number as caller ID
-        record: 'record-from-answer-dual',
-        recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
-        recordingStatusCallbackEvent: ['completed'],
-        statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
-        statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-        statusCallbackMethod: 'POST'
-      });
-      dial.number(to);
+           if (userPhoneNumber) {
+             await TwilioCallLog.create({
+               call_sid: callSid,
+               user_id: userPhoneNumber.user_id,
+               phone_number_id: userPhoneNumber.id,
+               from_number: from,
+               to_number: to,
+               direction: 'outbound',
+               status: 'initiated',
+               record: true
+             });
+             console.log(`✅ Call log created for browser call: ${callSid}`);
+           }
+         } catch (logError) {
+           console.error('❌ Error creating call log:', logError);
+           // Continue with call even if logging fails
+         }
+       }
+       
+       const dial = twiml.dial({
+         callerId: from, // Use user's purchased number as caller ID
+         record: 'record-from-answer-dual',
+         recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
+         recordingStatusCallbackEvent: ['completed'],
+         statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
+         statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+         statusCallbackMethod: 'POST'
+       });
+       dial.number(normalizedTo); // Use normalized phone number for dialing
       
     } else if (direction === 'outbound-api') {
       // Handle legacy API calls (if still used)
