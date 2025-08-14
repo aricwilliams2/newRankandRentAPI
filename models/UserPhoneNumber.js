@@ -79,6 +79,12 @@ class UserPhoneNumber {
 
     static async findByPhoneNumber(phoneNumber) {
         try {
+            // Handle null/undefined phone numbers
+            if (!phoneNumber) {
+                console.log('⚠️ findByPhoneNumber called with null/undefined phone number');
+                return null;
+            }
+            
             const rows = await db.query(
                 'SELECT * FROM user_phone_numbers WHERE phone_number = ?',
                 [phoneNumber]

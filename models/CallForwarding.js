@@ -54,6 +54,12 @@ class CallForwarding {
 
     static async findByPhoneNumberId(phoneNumberId) {
         try {
+            // Handle null/undefined phone number ID
+            if (!phoneNumberId) {
+                console.log('⚠️ findByPhoneNumberId called with null/undefined phoneNumberId');
+                return null;
+            }
+            
             const rows = await db.query(
                 'SELECT * FROM call_forwarding WHERE phone_number_id = ? AND is_active = true',
                 [phoneNumberId]
@@ -70,6 +76,12 @@ class CallForwarding {
 
     static async findByPhoneNumberIdAnyStatus(phoneNumberId) {
         try {
+            // Handle null/undefined phone number ID
+            if (!phoneNumberId) {
+                console.log('⚠️ findByPhoneNumberIdAnyStatus called with null/undefined phoneNumberId');
+                return null;
+            }
+            
             const rows = await db.query(
                 'SELECT * FROM call_forwarding WHERE phone_number_id = ?',
                 [phoneNumberId]
@@ -136,6 +148,12 @@ class CallForwarding {
 
     static async getActiveForwardingForNumber(phoneNumberId) {
         try {
+            // Handle null/undefined phone number ID
+            if (!phoneNumberId) {
+                console.log('⚠️ getActiveForwardingForNumber called with null/undefined phoneNumberId');
+                return null;
+            }
+            
             const rows = await db.query(
                 'SELECT * FROM call_forwarding WHERE phone_number_id = ? AND is_active = true',
                 [phoneNumberId]
