@@ -310,8 +310,8 @@ router.post('/twiml', async (req, res) => {
     
     // Handle browser-to-phone calls (from Twilio Voice SDK)
     // Browser calls can come as 'inbound' direction when using Voice SDK
-    // We distinguish by checking if 'from' is a phone number (browser call) vs 'client:' (real inbound)
-    const isBrowserCall = to && to.startsWith('+') && from && from.startsWith('+') && !caller?.startsWith('client:');
+    // We distinguish by checking if 'from' is a phone number (browser call) vs real inbound call
+    const isBrowserCall = to && to.startsWith('+') && from && from.startsWith('+') && direction === 'inbound';
     const isLegacyApiCall = direction === 'outbound-api';
     
     if (isBrowserCall || isLegacyApiCall) {
@@ -370,7 +370,7 @@ router.post('/twiml', async (req, res) => {
         twiml.say('I\'m sorry, there was an error connecting your call. Please try again.');
         twiml.hangup();
       }
-         } else if (direction === 'inbound' && caller?.startsWith('client:')) {
+         } else if (direction === 'inbound' && !from?.startsWith('+')) {
        // Handle real inbound calls to your Twilio number (someone calling your number)
        console.log(`📞 Real inbound call received to: ${called}`);
        
