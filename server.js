@@ -12,6 +12,7 @@ const taskRoutes = require("./routes/taskRoutes");
 const stripeRoutes = require("./routes/stripeRoutes");
 const callLogRoutes = require("./routes/callLogRoutes");
 const twilioRoutes = require("./routes/twilioRoutes");
+const callForwardingRoutes = require("./routes/callForwardingRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,6 +39,7 @@ app.use("/api", websiteRoutes);
 app.use("/api", taskRoutes);
 app.use("/api", callLogRoutes);
 app.use("/api/twilio", twilioRoutes);
+app.use("/api/call-forwarding", callForwardingRoutes);
 
 // API endpoints documentation
 app.get("/api/endpoints", (req, res) => {

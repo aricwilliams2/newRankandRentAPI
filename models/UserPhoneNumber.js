@@ -101,6 +101,30 @@ class UserPhoneNumber {
         }
     }
 
+    static async findById(id) {
+        try {
+            const rows = await db.query(
+                'SELECT * FROM user_phone_numbers WHERE id = ?',
+                [id]
+            );
+            if (rows.length > 0) {
+                const phone = new UserPhoneNumber(rows[0]);
+                if (phone.capabilities) {
+                    try {
+                        phone.capabilities = JSON.parse(phone.capabilities);
+                    } catch (e) {
+                        phone.capabilities = {};
+                    }
+                }
+                return phone;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error finding phone number by ID:', error);
+            throw error;
+        }
+    }
+
     static async findByTwilioSid(twilioSid) {
         try {
             const rows = await db.query(

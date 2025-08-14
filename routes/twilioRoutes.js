@@ -366,9 +366,87 @@ router.post('/twiml', async (req, res) => {
       }
     } else if (direction === 'inbound') {
       // Handle inbound calls to your Twilio number
-      twiml.say('Hello! Thank you for calling.');
-      twiml.pause({ length: 1 });
-      twiml.say('This is a Twilio phone system. Goodbye!');
+      console.log(`📞 Inbound call received to: ${called}`);
+      
+      // Check for call forwarding settings
+      try {
+        const userPhoneNumber = await UserPhoneNumber.findByPhoneNumber(called);
+        if (userPhoneNumber) {
+          const CallForwarding = require('../models/CallForwarding');
+          const forwarding = await CallForwarding.getActiveForwardingForNumber(userPhoneNumber.id);
+          
+          if (forwarding && forwarding.is_active) {
+            console.log(`🔄 Call forwarding active: ${called} -> ${forwarding.forward_to_number}`);
+            
+            // Create call log entry for inbound call
+            if (callSid) {
+              try {
+                await TwilioCallLog.create({
+                  call_sid: callSid,
+                  user_id: userPhoneNumber.user_id,
+                  phone_number_id: userPhoneNumber.id,
+                  from_number: caller,
+                  to_number: called,
+                  direction: 'inbound',
+                  status: 'initiated',
+                  record: true
+                });
+                console.log(`✅ Call log created for inbound call: ${callSid}`);
+              } catch (logError) {
+                console.error('❌ Error creating call log:', logError);
+              }
+            }
+            
+            // Forward the call based on forwarding type
+            if (forwarding.forwarding_type === 'always') {
+              // Forward immediately
+              const dial = twiml.dial({
+                callerId: called,
+                record: 'record-from-answer-dual',
+                recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
+                recordingStatusCallbackEvent: ['completed'],
+                statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
+                statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+                statusCallbackMethod: 'POST',
+                timeout: forwarding.ring_timeout || 20
+              });
+              dial.number(forwarding.forward_to_number);
+            } else {
+              // For other forwarding types, we could implement more complex logic
+              // For now, just forward immediately
+              const dial = twiml.dial({
+                callerId: called,
+                record: 'record-from-answer-dual',
+                recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
+                recordingStatusCallbackEvent: ['completed'],
+                statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
+                statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+                statusCallbackMethod: 'POST',
+                timeout: forwarding.ring_timeout || 20
+              });
+              dial.number(forwarding.forward_to_number);
+            }
+          } else {
+            // No forwarding active, play default message
+            console.log(`📞 No call forwarding active for: ${called}`);
+            twiml.say('Hello! Thank you for calling.');
+            twiml.pause({ length: 1 });
+            twiml.say('This is a Twilio phone system. Goodbye!');
+          }
+        } else {
+          // Phone number not found in our system
+          console.log(`📞 Unknown phone number: ${called}`);
+          twiml.say('Hello! Thank you for calling.');
+          twiml.pause({ length: 1 });
+          twiml.say('This is a Twilio phone system. Goodbye!');
+        }
+      } catch (forwardingError) {
+        console.error('❌ Error checking call forwarding:', forwardingError);
+        // Fallback to default message
+        twiml.say('Hello! Thank you for calling.');
+        twiml.pause({ length: 1 });
+        twiml.say('This is a Twilio phone system. Goodbye!');
+      }
     } else {
       // Default response for unknown calls
       console.log('⚠️ Unknown call direction or missing parameters');
@@ -937,7 +1015,14 @@ router.get('/my-numbers/active', auth, async (req, res) => {
 router.put('/my-numbers/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { friendly_name, is_active } = req.body;
+    const { 
+      friendly_name, 
+      is_active, 
+      voice_url, 
+      status_callback, 
+      status_callback_method, 
+      status_callback_event 
+    } = req.body;
     const userId = req.user.id;
 
     // First verify the phone number belongs to the user
@@ -948,11 +1033,29 @@ router.put('/my-numbers/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Phone number not found' });
     }
 
+    // Update local database
     const updateData = {};
     if (friendly_name !== undefined) updateData.friendly_name = friendly_name;
     if (is_active !== undefined) updateData.is_active = is_active;
 
     const updated = await UserPhoneNumber.update(id, updateData);
+
+    // Update Twilio phone number configuration if Twilio-specific fields are provided
+    if (voice_url || status_callback || status_callback_method || status_callback_event) {
+      try {
+        const twilioUpdateData = {};
+        if (voice_url) twilioUpdateData.voiceUrl = voice_url;
+        if (status_callback) twilioUpdateData.statusCallback = status_callback;
+        if (status_callback_method) twilioUpdateData.statusCallbackMethod = status_callback_method;
+        if (status_callback_event) twilioUpdateData.statusCallbackEvent = status_callback_event;
+
+        await client.incomingPhoneNumbers(userNumber.twilio_sid).update(twilioUpdateData);
+        console.log(`✅ Twilio phone number ${userNumber.phone_number} configuration updated`);
+      } catch (twilioErr) {
+        console.error('❌ Error updating Twilio phone number configuration:', twilioErr);
+        // Continue with response even if Twilio update fails
+      }
+    }
 
     if (updated) {
       res.json({
