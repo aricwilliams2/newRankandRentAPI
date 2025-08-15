@@ -341,18 +341,20 @@ router.post('/twiml', async (req, res) => {
       query: req.query
     });
 
-    // Extract call parameters
-    const to = req.body.To || req.query.To;
-    const from = req.body.From || req.query.From;
-    const direction = req.body.Direction || req.query.Direction;
-    const called = req.body.Called || req.query.Called;
-    const caller = req.body.Caller || req.query.Caller;
-    const callSid = req.body.CallSid || req.query.CallSid;
+    // Extract and normalize call parameters (be robust to missing/empty fields)
+    const to = (req.body.To || req.query.To || '').trim();
+    const from = (req.body.From || req.query.From || '').trim();
+    const rawDirection = (req.body.Direction || req.query.Direction || '').toString().toLowerCase();
+    const direction = rawDirection || (from && to ? (from.startsWith('+') && to.startsWith('+') ? 'inbound' : '') : '');
+    const called = (req.body.Called || req.query.Called || to || '').trim();
+    const caller = (req.body.Caller || req.query.Caller || from || '').trim();
+    const callSid = (req.body.CallSid || req.query.CallSid || '').trim();
     
     console.log(`📞 Call - Direction: ${direction}, From: ${from}, To: ${to}, Called: ${called}, Caller: ${caller}, CallSid: ${callSid}`);
     
     // Handle browser-to-phone calls (from Twilio Voice SDK)
-    if (to && to.startsWith('+') && direction !== 'inbound') {
+    // Note: Twilio can sometimes label Client-originated calls as inbound. If Caller starts with 'client:' and To is PSTN, treat as outbound.
+    if (to && to.startsWith('+') && (direction !== 'inbound' || (caller && caller.startsWith('client:')))) {
       console.log(`🎙️ Browser calling phone number: ${to}`);
       
       // Create call log entry for browser calls
@@ -424,113 +426,112 @@ router.post('/twiml', async (req, res) => {
         twiml.say('I\'m sorry, there was an error connecting your call. Please try again.');
         twiml.hangup();
       }
-         } else if (direction === 'inbound' && !caller?.startsWith('client:')) {
-       // Handle real inbound calls to your Twilio number (someone calling your number)
-       console.log(`📞 Real inbound call received to: ${called}`);
-       
-       // Check for call forwarding settings
-       try {
-         // Use 'To' field for inbound calls if 'called' is undefined
-         const phoneNumberToCheck = called || req.body.To;
-         console.log(`🔍 Checking phone number: ${phoneNumberToCheck}`);
-         
-         if (!phoneNumberToCheck) {
-           console.log('⚠️ No phone number found in request');
-           twiml.say('Hello! Thank you for calling.');
-           twiml.pause({ length: 1 });
-           twiml.say('This is a Twilio phone system. Goodbye!');
-           res.type('text/xml');
-           res.send(twiml.toString());
-           return;
-         }
-         
-         const userPhoneNumber = await UserPhoneNumber.findByPhoneNumber(phoneNumberToCheck);
-                           if (userPhoneNumber) {
-           try {
-             const CallForwarding = require('../models/CallForwarding');
-             const forwarding = await CallForwarding.getActiveForwardingForNumber(userPhoneNumber.id);
-            
-             if (forwarding && forwarding.is_active) {
-               console.log(`🔄 Call forwarding active: ${phoneNumberToCheck} -> ${forwarding.forward_to_number}`);
-               console.log(`📋 Forwarding details:`, {
-                 phone_number_id: forwarding.phone_number_id,
-                 forward_to_number: forwarding.forward_to_number,
-                 forwarding_type: forwarding.forwarding_type,
-                 ring_timeout: forwarding.ring_timeout,
-                 is_active: forwarding.is_active
-               });
-               
-               // Create call log entry for inbound call
-               if (callSid) {
-                 try {
-                   await TwilioCallLog.create({
-                     call_sid: callSid,
-                     user_id: userPhoneNumber.user_id,
-                     phone_number_id: userPhoneNumber.id,
-                     from_number: caller,
-                     to_number: phoneNumberToCheck,
-                     direction: 'inbound',
-                     status: 'initiated',
-                     record: true
-                   });
-                   console.log(`✅ Call log created for inbound call: ${callSid}`);
-                 } catch (logError) {
-                   console.error('❌ Error creating call log:', logError);
-                 }
-               }
-               
-               // Forward the call based on forwarding type
-               if (forwarding.forwarding_type === 'always') {
-                 // Forward immediately
-                 const dial = twiml.dial({
-                   callerId: phoneNumberToCheck,
-                   record: 'record-from-answer-dual',
-                   recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
-                   recordingStatusCallbackEvent: ['completed'],
-                   statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
-                   statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-                   statusCallbackMethod: 'POST',
-                   timeout: forwarding.ring_timeout || 20
-                 });
-                 console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number}`);
-                 dial.number(forwarding.forward_to_number);
-               } else {
-                 // For other forwarding types, we could implement more complex logic
-                 // For now, just forward immediately
-                 const dial = twiml.dial({
-                   callerId: phoneNumberToCheck,
-                   record: 'record-from-answer-dual',
-                   recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
-                   recordingStatusCallbackEvent: ['completed'],
-                   statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
-                   statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-                   statusCallbackMethod: 'POST',
-                   timeout: forwarding.ring_timeout || 20
-                 });
-                 console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number}`);
-                 dial.number(forwarding.forward_to_number);
-               }
-             } else {
-               // No forwarding active, play default message
-               console.log(`📞 No call forwarding active for: ${phoneNumberToCheck}`);
-               twiml.say('Hello! Thank you for calling.');
-               twiml.pause({ length: 1 });
-               twiml.say('This is a Twilio phone system. Goodbye!');
-             }
-           } catch (forwardingError) {
-             console.error('❌ Error checking call forwarding:', forwardingError);
-             // Fallback to default message
-             twiml.say('Hello! Thank you for calling.');
-             twiml.pause({ length: 1 });
-             twiml.say('This is a Twilio phone system. Goodbye!');
-           }
-         } else {
-           // Phone number not found in our system
-           console.log(`📞 Unknown phone number: ${phoneNumberToCheck}`);
-           twiml.say('Hello! Thank you for calling.');
-           twiml.pause({ length: 1 });
-           twiml.say('This is a Twilio phone system. Goodbye!');
-         }
+    } else if (direction === 'inbound') {
+      // Handle inbound calls to your Twilio number (PSTN to your number or Client)
+      console.log(`📞 Inbound call received to: ${called}`);
+      
+      // Check for call forwarding settings
+      try {
+        // Use 'Called' if present, otherwise fall back to 'To'
+        const phoneNumberToCheck = called || req.body.To;
+        console.log(`🔍 Checking phone number: ${phoneNumberToCheck}`);
+        
+        if (!phoneNumberToCheck) {
+          console.log('⚠️ No phone number found in request');
+          twiml.say('Hello! Thank you for calling.');
+          twiml.pause({ length: 1 });
+          twiml.say('This is a Twilio phone system. Goodbye!');
+          res.type('text/xml');
+          res.send(twiml.toString());
+          return;
+        }
+        
+        const userPhoneNumber = await UserPhoneNumber.findByPhoneNumber(phoneNumberToCheck);
+        if (userPhoneNumber) {
+          try {
+            const CallForwarding = require('../models/CallForwarding');
+            const forwarding = await CallForwarding.getActiveForwardingForNumber(userPhoneNumber.id);
+           
+            if (forwarding && forwarding.is_active) {
+              console.log(`🔄 Call forwarding active: ${phoneNumberToCheck} -> ${forwarding.forward_to_number}`);
+              console.log(`📋 Forwarding details:`, {
+                phone_number_id: forwarding.phone_number_id,
+                forward_to_number: forwarding.forward_to_number,
+                forwarding_type: forwarding.forwarding_type,
+                ring_timeout: forwarding.ring_timeout,
+                is_active: forwarding.is_active
+              });
+              
+              // Create call log entry for inbound call
+              if (callSid) {
+                try {
+                  await TwilioCallLog.create({
+                    call_sid: callSid,
+                    user_id: userPhoneNumber.user_id,
+                    phone_number_id: userPhoneNumber.id,
+                    from_number: caller,
+                    to_number: phoneNumberToCheck,
+                    direction: 'inbound',
+                    status: 'initiated',
+                    record: true
+                  });
+                  console.log(`✅ Call log created for inbound call: ${callSid}`);
+                } catch (logError) {
+                  console.error('❌ Error creating call log:', logError);
+                }
+              }
+              
+              // Forward the call based on forwarding type
+              if (forwarding.forwarding_type === 'always') {
+                // Forward immediately
+                const dial = twiml.dial({
+                  callerId: phoneNumberToCheck,
+                  record: 'record-from-answer-dual',
+                  recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
+                  recordingStatusCallbackEvent: ['completed'],
+                  statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
+                  statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+                  statusCallbackMethod: 'POST',
+                  timeout: forwarding.ring_timeout || 20
+                });
+                console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number}`);
+                dial.number(forwarding.forward_to_number);
+              } else {
+                // For other forwarding types, forward immediately (placeholder for future logic)
+                const dial = twiml.dial({
+                  callerId: phoneNumberToCheck,
+                  record: 'record-from-answer-dual',
+                  recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
+                  recordingStatusCallbackEvent: ['completed'],
+                  statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
+                  statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+                  statusCallbackMethod: 'POST',
+                  timeout: forwarding.ring_timeout || 20
+                });
+                console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number}`);
+                dial.number(forwarding.forward_to_number);
+              }
+            } else {
+              // No forwarding active, play default message
+              console.log(`📞 No call forwarding active for: ${phoneNumberToCheck}`);
+              twiml.say('Hello! Thank you for calling.');
+              twiml.pause({ length: 1 });
+              twiml.say('This is a Twilio phone system. Goodbye!');
+            }
+          } catch (forwardingError) {
+            console.error('❌ Error checking call forwarding:', forwardingError);
+            // Fallback to default message
+            twiml.say('Hello! Thank you for calling.');
+            twiml.pause({ length: 1 });
+            twiml.say('This is a Twilio phone system. Goodbye!');
+          }
+        } else {
+          // Phone number not found in our system
+          console.log(`📞 Unknown phone number: ${phoneNumberToCheck}`);
+          twiml.say('Hello! Thank you for calling.');
+          twiml.pause({ length: 1 });
+          twiml.say('This is a Twilio phone system. Goodbye!');
+        }
       } catch (forwardingError) {
         console.error('❌ Error checking call forwarding:', forwardingError);
         // Fallback to default message
