@@ -4,6 +4,7 @@ const client = require('../config/twilioClient');
 const { authenticate: auth } = require('../middleware/auth');
 const TwilioCallLog = require('../models/TwilioCallLog');
 const UserPhoneNumber = require('../models/UserPhoneNumber');
+const { BillingService, MIN_REQUIRED_BALANCE, PHONE_NUMBER_MONTHLY_PRICE } = require('../services/BillingService');
 
 // Generate Twilio Voice Access Token for browser calling
 router.get('/access-token', auth, async (req, res) => {
@@ -35,6 +36,22 @@ router.get('/access-token', auth, async (req, res) => {
       return res.status(400).json({ 
         error: 'No active phone numbers found',
         details: 'Please purchase a phone number before making calls'
+      });
+    }
+
+    // Enforce minimum balance (unless they still have free minutes)
+    try {
+      await BillingService.ensureMonthlyMinutesReset(req.user.id);
+      const refreshedUser = await require('../models/User').findById(req.user.id);
+      const freeRemaining = parseInt(refreshedUser.free_minutes_remaining || 0, 10);
+      if (freeRemaining <= 0) {
+        await BillingService.assertMinBalance(req.user.id);
+      }
+    } catch (e) {
+      return res.status(402).json({
+        error: 'Insufficient balance',
+        details: e.message,
+        minRequired: MIN_REQUIRED_BALANCE
       });
     }
     
@@ -83,6 +100,24 @@ router.post('/buy-number', auth, async (req, res) => {
     const { phoneNumber, areaCode, country = 'US' } = req.body;
     const userId = req.user.id;
     
+    // Check free number entitlement
+    await BillingService.ensureMonthlyMinutesReset(userId);
+    const user = await require('../models/User').findById(userId);
+    const isEligibleForFree = !user.has_claimed_free_number; // one-time free number
+    if (!isEligibleForFree) {
+      // Enforce minimum balance before purchasing a paid number
+      try {
+        await BillingService.assertMinBalance(userId);
+      } catch (e) {
+        return res.status(402).json({
+          error: 'Insufficient balance to purchase number',
+          details: e.message,
+          price: PHONE_NUMBER_MONTHLY_PRICE,
+          minRequired: MIN_REQUIRED_BALANCE
+        });
+      }
+    }
+
     // Check if user already owns this number
     if (phoneNumber) {
       const existingNumber = await UserPhoneNumber.findByPhoneNumber(phoneNumber);
@@ -213,9 +248,12 @@ router.post('/buy-number', auth, async (req, res) => {
       locality: numberToBuy.locality || null,
       purchase_price: purchasedNumber.price || null,
       purchase_price_unit: purchasedNumber.priceUnit || 'USD',
-      monthly_cost: 1.00, // Standard Twilio monthly cost
+      monthly_cost: 2.00, // Your monthly price
       capabilities: numberToBuy.capabilities || null
     });
+
+    // Charge or mark as free
+    const { charged, nextRenewalAt } = await BillingService.chargeForNumberPurchase(userId, phoneNumberId, isEligibleForFree);
 
     // Check if we got a different number than requested
     const requestedNumber = req.body.phoneNumber;
@@ -236,7 +274,12 @@ router.post('/buy-number', auth, async (req, res) => {
       region: numberToBuy.region,
       priceUnit: purchasedNumber.priceUnit,
       price: purchasedNumber.price,
-      id: phoneNumberId
+      id: phoneNumberId,
+      billing: {
+        charged,
+        nextRenewalAt: nextRenewalAt || null,
+        wasFree: isEligibleForFree
+      }
     });
 
   } catch (err) {
@@ -318,6 +361,23 @@ router.post('/twiml', async (req, res) => {
           // Find the user by the from number
           const userPhoneNumber = await UserPhoneNumber.findByPhoneNumber(from);
           if (userPhoneNumber) {
+            // Enforce balance/free minutes at call time
+            try {
+              await BillingService.ensureMonthlyMinutesReset(userPhoneNumber.user_id);
+              const refreshedUser = await require('../models/User').findById(userPhoneNumber.user_id);
+              const freeRemaining = parseInt(refreshedUser.free_minutes_remaining || 0, 10);
+              if (freeRemaining <= 0) {
+                await BillingService.assertMinBalance(userPhoneNumber.user_id);
+              }
+            } catch (e) {
+              console.warn('Blocking outbound call due to insufficient balance:', e.message);
+              twiml.say('Insufficient balance. Please add funds to your account.');
+              twiml.hangup();
+              const twimlResponseBlocked = twiml.toString();
+              res.type('text/xml');
+              return res.send(twimlResponseBlocked);
+            }
+
             await TwilioCallLog.create({
               call_sid: callSid,
               user_id: userPhoneNumber.user_id,
@@ -496,6 +556,14 @@ router.post('/status-callback', async (req, res) => {
       price: CallPrice,
       price_unit: CallPriceUnit
     });
+
+    // Bill on completion
+    try {
+      await BillingService.handleCallStatusUpdate(CallSid, CallStatus, CallDuration);
+    } catch (billingErr) {
+      console.error('Billing error:', billingErr);
+      // Don't fail webhook
+    }
 
     console.log(`Call ${CallSid} status updated to: ${CallStatus}`);
     res.sendStatus(200);

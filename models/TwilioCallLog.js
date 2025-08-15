@@ -12,6 +12,9 @@ class TwilioCallLog {
         this.direction = data.direction;
         this.price = data.price;
         this.price_unit = data.price_unit;
+        this.is_billed = data.is_billed;
+        this.billed_minutes = data.billed_minutes;
+        this.billed_amount = data.billed_amount;
         this.recording_url = data.recording_url;
         this.recording_sid = data.recording_sid;
         this.recording_duration = data.recording_duration;

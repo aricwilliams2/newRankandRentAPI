@@ -17,6 +17,16 @@ This is a Node.js API converted from PHP Laravel, providing full CRUD operations
 - ✅ **SEO & Keyword Research** - Comprehensive SEO analysis tools
 - ✅ **Stripe Integration** - Payment processing
 
+## Billing & Usage
+
+- Calls: $0.02/min (rounded up). Each user gets 200 free minutes/month.
+- Numbers: $2/month. New users get 1 free number on first purchase.
+- Users must keep a minimum $5 balance to make calls or buy numbers when no free minutes remain.
+
+Endpoints:
+- `GET /api/billing/me` — current balance, free minutes, and pricing.
+- `POST /stripe/top-up` — Stripe Checkout for one-time balance top-up (min $5). Webhook credits balance.
+
 ## Installation
 
 1. Install dependencies:

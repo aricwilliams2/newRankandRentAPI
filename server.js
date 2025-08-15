@@ -10,6 +10,7 @@ const authRoutes = require("./routes/authRoutes");
 const websiteRoutes = require("./routes/websiteRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const stripeRoutes = require("./routes/stripeRoutes");
+const billingRoutes = require("./routes/billingRoutes");
 const callLogRoutes = require("./routes/callLogRoutes");
 const twilioRoutes = require("./routes/twilioRoutes");
 const callForwardingRoutes = require("./routes/callForwardingRoutes");
@@ -23,6 +24,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/stripe", stripeRoutes);
+app.use("/api/billing", billingRoutes);
 
 // Routes
 app.get("/api/test", (req, res) => {
