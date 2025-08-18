@@ -80,6 +80,12 @@ export const twilioApi = {
     return URL.createObjectURL(blob);
   },
 
+  // === STATS ===
+  getUsageStats: async (): Promise<{
+    success: boolean;
+    data: { total_calls: number; total_duration_seconds: number; total_numbers: number };
+  }> => (await apiClient.get('/api/twilio/usage-stats')).data,
+
   // === LEGACY ===
   getPhoneNumbers: async () => (await apiClient.get('/api/twilio/phone-numbers')).data,
   deletePhoneNumber: async (phoneNumberId: string) =>

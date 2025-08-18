@@ -6,6 +6,37 @@ const TwilioCallLog = require('../models/TwilioCallLog');
 const UserPhoneNumber = require('../models/UserPhoneNumber');
 const { BillingService, MIN_REQUIRED_BALANCE, PHONE_NUMBER_MONTHLY_PRICE } = require('../services/BillingService');
 
+// Aggregated usage stats for the authenticated user
+router.get('/usage-stats', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [callStats, phoneStats] = await Promise.all([
+      TwilioCallLog.getCallStats(userId),
+      UserPhoneNumber.getUserPhoneNumberStats(userId)
+    ]);
+
+    const totalCalls = Number(callStats?.total_calls || 0);
+    const totalDurationSeconds = Number(callStats?.total_duration || 0);
+    const totalNumbers = Number(phoneStats?.total_numbers || 0);
+
+    return res.json({
+      success: true,
+      data: {
+        total_calls: totalCalls,
+        total_duration_seconds: totalDurationSeconds,
+        total_numbers: totalNumbers
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching usage stats:', err);
+    return res.status(500).json({
+      error: 'Failed to fetch usage stats',
+      details: err.message
+    });
+  }
+});
+
 // Generate Twilio Voice Access Token for browser calling
 router.get('/access-token', auth, async (req, res) => {
   try {

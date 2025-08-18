@@ -361,6 +361,12 @@ app.get("/api/endpoints", (req, res) => {
     },
     {
       method: "GET",
+      path: "/api/twilio/usage-stats",
+      description: "Get aggregated call duration, call count, and phone number count for the authenticated user",
+      auth_required: true,
+    },
+    {
+      method: "GET",
       path: "/api/twilio/call-logs",
       description: "Get call logs for a user",
       optional_parameters: "page, limit, status",
