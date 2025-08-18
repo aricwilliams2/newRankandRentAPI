@@ -378,7 +378,23 @@ class SeoController {
        }
  
        const data = await response.json();
-       
+
+       // Persist snapshot for authenticated users
+       try {
+         const userId = req.user?.id;
+         if (userId) {
+           const AnalyticsSnapshot = require('../models/AnalyticsSnapshot');
+           await AnalyticsSnapshot.create({
+             user_id: userId,
+             url: req.validatedQuery?.url || req.query?.url,
+             mode: req.validatedQuery?.mode || req.query?.mode,
+             snapshot: data
+           });
+         }
+       } catch (e) {
+         console.warn('Snapshot save failed (non-blocking):', e?.message || e);
+       }
+
        res.json(data);
      } catch (error) {
        console.error('Error fetching website traffic:', error);

@@ -71,16 +71,16 @@ class CallLog {
     
     const sql = `
       INSERT INTO call_logs (
-        user_id, lead_id, outcome, notes, next_follow_up, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        lead_id, outcome, notes, next_follow_up, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
     `;
     
+    const toNull = (v) => (v === undefined ? null : v);
     const params = [
-      data.user_id,
-      data.lead_id,
-      data.outcome,
-      data.notes,
-      nextFollowUp,
+      toNull(data.lead_id),
+      toNull(data.outcome),
+      toNull(data.notes),
+      toNull(nextFollowUp),
       now,
       now
     ];

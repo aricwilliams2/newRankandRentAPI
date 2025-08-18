@@ -27,8 +27,9 @@ class CallLogController {
         });
       }
 
-      // Create call log
+      // Create call log (associate with current user)
       const callLog = await CallLog.create({
+        user_id: req.user.id,
         lead_id,
         outcome,
         notes,

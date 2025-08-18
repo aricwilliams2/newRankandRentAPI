@@ -14,6 +14,7 @@ const billingRoutes = require("./routes/billingRoutes");
 const callLogRoutes = require("./routes/callLogRoutes");
 const twilioRoutes = require("./routes/twilioRoutes");
 const callForwardingRoutes = require("./routes/callForwardingRoutes");
+const analyticsSnapshotRoutes = require("./routes/analyticsSnapshotRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,6 +43,7 @@ app.use("/api", taskRoutes);
 app.use("/api", callLogRoutes);
 app.use("/api/twilio", twilioRoutes);
 app.use("/api/call-forwarding", callForwardingRoutes);
+app.use("/api/analytics-snapshots", analyticsSnapshotRoutes);
 
 // API endpoints documentation
 app.get("/api/endpoints", (req, res) => {
@@ -282,6 +284,27 @@ app.get("/api/endpoints", (req, res) => {
       method: "GET",
       path: "/api/seo-health",
       description: "Check RapidAPI connectivity status",
+    },
+
+    // Analytics snapshot endpoints
+    {
+      method: "GET",
+      path: "/api/analytics-snapshots",
+      description: "List stored analytics snapshots for the authenticated user",
+      auth_required: true,
+      optional_parameters: "limit, offset",
+    },
+    {
+      method: "GET",
+      path: "/api/analytics-snapshots/:id",
+      description: "Get a single analytics snapshot for the authenticated user",
+      auth_required: true,
+    },
+    {
+      method: "DELETE",
+      path: "/api/analytics-snapshots/:id",
+      description: "Delete a single analytics snapshot for the authenticated user",
+      auth_required: true,
     },
 
     // Twilio endpoints

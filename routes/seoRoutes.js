@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const SeoController = require('../controllers/SeoController');
 const { validateSeoRequest, validateBacklinkRequest, validateGoogleSearchRequest } = require('../middleware/validation');
+const { authenticate } = require('../middleware/auth');
 
 // SEO API routes
 router.get('/url-metrics', validateSeoRequest('urlMetrics'), SeoController.getUrlMetrics);
@@ -10,7 +11,8 @@ router.get('/keyword-generator', validateSeoRequest('keywordGenerator'), SeoCont
 router.post('/google-rank-check', validateSeoRequest('googleRankCheck'), SeoController.checkGoogleRank);
 
 // Website traffic and backlinks API routes
-router.get('/website-traffic', validateSeoRequest('websiteTraffic'), SeoController.getWebsiteTraffic);
+// Require auth for website traffic so we can associate snapshots with users
+router.get('/website-traffic', authenticate, validateSeoRequest('websiteTraffic'), SeoController.getWebsiteTraffic);
 router.get('/website-authority', validateSeoRequest('websiteAuthority'), SeoController.getWebsiteAuthority);
 router.get('/website-backlinks', validateSeoRequest('websiteBacklinks'), SeoController.getWebsiteBacklinks);
 
