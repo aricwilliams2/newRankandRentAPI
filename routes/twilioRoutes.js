@@ -4,7 +4,7 @@ const client = require('../config/twilioClient');
 const { authenticate: auth } = require('../middleware/auth');
 const TwilioCallLog = require('../models/TwilioCallLog');
 const UserPhoneNumber = require('../models/UserPhoneNumber');
-const { BillingService, MIN_REQUIRED_BALANCE, PHONE_NUMBER_MONTHLY_PRICE } = require('../services/BillingService');
+const { BillingService, MIN_REQUIRED_BALANCE, PHONE_NUMBER_MONTHLY_PRICE, CALL_RATE_PER_MINUTE } = require('../services/BillingService');
 
 // Aggregated usage stats for the authenticated user
 router.get('/usage-stats', auth, async (req, res) => {
@@ -32,6 +32,68 @@ router.get('/usage-stats', auth, async (req, res) => {
     console.error('Error fetching usage stats:', err);
     return res.status(500).json({
       error: 'Failed to fetch usage stats',
+      details: err.message
+    });
+  }
+});
+
+// Time remaining endpoint: computes remaining time from free minutes and balance
+router.get('/time-remaining', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Ensure monthly free minutes are reset if needed
+    await BillingService.ensureMonthlyMinutesReset(userId);
+
+    // Reload user for latest values
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Determine period start for recording sum
+    const lastReset = user.free_minutes_last_reset ? new Date(user.free_minutes_last_reset) : null;
+    const periodStart = lastReset ? lastReset : new Date(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1);
+    const periodStartStr = periodStart.toISOString().slice(0, 19).replace('T', ' ');
+
+    // Sum recording durations (in seconds) for this user in current period
+    const totalRecordingSeconds = await TwilioCallLog.sumRecordingDurationSince(userId, periodStartStr);
+
+    // Convert free minutes to seconds
+    const freeMinutesRemaining = parseInt(user.free_minutes_remaining || 0, 10);
+    const freeSecondsRemaining = Math.max(0, freeMinutesRemaining * 60 - totalRecordingSeconds);
+
+    // If free seconds are exhausted, compute paid seconds from balance and rate
+    let paidSecondsAvailable = 0;
+    let perMinuteRate = CALL_RATE_PER_MINUTE; // USD per minute
+    let perSecondRate = perMinuteRate / 60.0; // USD per second
+
+    const userBalance = parseFloat(user.balance || 0);
+    if (freeSecondsRemaining <= 0 && userBalance > 0 && perSecondRate > 0) {
+      paidSecondsAvailable = Math.floor(userBalance / perSecondRate);
+    }
+
+    // If free seconds > 0, we do not spend balance yet. Remaining time is freeSecondsRemaining.
+    // If free seconds are 0, remaining time is how much paidSecondsAvailable we can afford.
+    const totalSecondsAvailable = freeSecondsRemaining > 0 ? freeSecondsRemaining : paidSecondsAvailable;
+
+    return res.json({
+      success: true,
+      data: {
+        period_start: periodStartStr,
+        used_recording_seconds: Number(totalRecordingSeconds || 0),
+        free_minutes_remaining: freeMinutesRemaining,
+        free_seconds_remaining: freeSecondsRemaining,
+        balance_usd: userBalance,
+        call_rate_per_minute_usd: perMinuteRate,
+        paid_seconds_available: paidSecondsAvailable,
+        total_seconds_available: totalSecondsAvailable,
+        total_minutes_available: Math.floor(totalSecondsAvailable / 60)
+      }
+    });
+  } catch (err) {
+    console.error('Error computing time remaining:', err);
+    return res.status(500).json({
+      error: 'Failed to compute time remaining',
       details: err.message
     });
   }

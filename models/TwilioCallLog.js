@@ -178,6 +178,24 @@ class TwilioCallLog {
             throw error;
         }
     }
+
+    static async sumRecordingDurationSince(userId, sinceDate) {
+        try {
+            const rows = await db.query(
+                `SELECT SUM(COALESCE(recording_duration, 0)) AS total_seconds
+                 FROM twilio_call_logs
+                 WHERE user_id = ?
+                   AND recording_duration IS NOT NULL
+                   AND created_at >= ?`,
+                [userId, sinceDate]
+            );
+            const total = rows && rows.length ? rows[0].total_seconds : 0;
+            return Number(total || 0);
+        } catch (error) {
+            console.error('Error summing recording durations:', error);
+            throw error;
+        }
+    }
 }
 
 module.exports = TwilioCallLog; 
