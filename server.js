@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
+const path = require("path");
 require("dotenv").config();
 
 const leadRoutes = require("./routes/leadRoutes");
@@ -20,9 +21,31 @@ const videoRoutes = require("./routes/videoRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  process.env.FRONTEND_URL,          // e.g. https://rankandrenttool.com
+].filter(Boolean);
 
-// Middleware
-app.use(cors());
+const corsOptions = {
+  origin(origin, cb) {
+    // allow mobile apps / curl (no origin) and whitelisted sites
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error(`Not allowed by CORS: ${origin}`));
+  },
+  credentials: true,  // <-- needed if you send cookies or Authorization headers
+  methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With'],
+  exposedHeaders: ['Content-Length','Content-Range'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // handle preflight
+
+// Serve static files from uploads directory
+app.use('/videos', express.static(path.join(__dirname, 'uploads')));
 
 // Video routes MUST come BEFORE the body parsers to avoid conflicts with multipart data
 app.use("/api/videos", videoRoutes);
