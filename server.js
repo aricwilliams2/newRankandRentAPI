@@ -27,7 +27,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'https://rankandrenttool.com',
-  process.env.FRONTEND_URL,          // e.g. https://rankandrenttool.com
+  'https://www.rankandrenttool.com',
+  process.env.FRONTEND_URL,         
 ].filter(Boolean);
 
 const corsOptions = {
