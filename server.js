@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const multer = require("multer");
 require("dotenv").config();
 
 const leadRoutes = require("./routes/leadRoutes");
@@ -15,15 +16,22 @@ const callLogRoutes = require("./routes/callLogRoutes");
 const twilioRoutes = require("./routes/twilioRoutes");
 const callForwardingRoutes = require("./routes/callForwardingRoutes");
 const analyticsSnapshotRoutes = require("./routes/analyticsSnapshotRoutes");
+const videoRoutes = require("./routes/videoRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Video routes MUST come BEFORE the body parsers to avoid conflicts with multipart data
+app.use("/api/videos", videoRoutes);
+
+// Standard parsers for JSON/urlencoded requests (these properly ignore multipart data)
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+
+// Routes that don't need file uploads
 app.use("/stripe", stripeRoutes);
 app.use("/api/billing", billingRoutes);
 
@@ -44,6 +52,19 @@ app.use("/api", callLogRoutes);
 app.use("/api/twilio", twilioRoutes);
 app.use("/api/call-forwarding", callForwardingRoutes);
 app.use("/api/analytics-snapshots", analyticsSnapshotRoutes);
+
+// Error handler for upload errors
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    console.error('Multer error:', err);
+    return res.status(400).json({ 
+      error: 'File upload error', 
+      details: err.message 
+    });
+  }
+  console.error('Upload error:', err);
+  res.status(500).json({ error: err.message });
+});
 
 // API endpoints documentation
 app.get("/api/endpoints", (req, res) => {
@@ -418,7 +439,7 @@ app.use((error, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📱 API available at http://localhost:${PORT}/api`);
-  console.log(`🔍 Health check: http://localhost:${PORT}/health`);
+  console.log(`�� Health check: http://localhost:${PORT}/health`);
 });
 
 module.exports = app;
