@@ -28,13 +28,28 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
   'https://rankandrenttool.com',
   'https://www.rankandrenttool.com',
-  process.env.FRONTEND_URL,         
+  process.env.FRONTEND_URL,
+  // Allow Chrome extensions
+  'chrome-extension://ddlbdpeknbempahbmihpgkpcagcggika',
+  // Allow any Chrome extension (for future extensions)
+  /^chrome-extension:\/\/.*$/
 ].filter(Boolean);
 
 const corsOptions = {
   origin(origin, cb) {
     // allow mobile apps / curl (no origin) and whitelisted sites
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    if (!origin) return cb(null, true);
+    
+    // Check if origin is in allowedOrigins array
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    
+    // Check if origin matches any regex patterns in allowedOrigins
+    for (const allowedOrigin of allowedOrigins) {
+      if (allowedOrigin instanceof RegExp && allowedOrigin.test(origin)) {
+        return cb(null, true);
+      }
+    }
+    
     return cb(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,  // <-- needed if you send cookies or Authorization headers
