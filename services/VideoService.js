@@ -49,8 +49,8 @@ class VideoService {
         Bucket: BUCKET_NAME,
         Key: key,
         Body: fileContent,
-        ContentType: contentType
-        // Removed ACL: 'public-read' to avoid bucket ACL issues
+        ContentType: contentType,
+        ACL: 'public-read'  // Enable public read access for video sharing
       };
 
       const result = await s3Client.send(new PutObjectCommand(params));

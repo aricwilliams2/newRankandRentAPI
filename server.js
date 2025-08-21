@@ -46,11 +46,16 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // handle preflight
 
-// Serve static files from uploads directory
-app.use('/videos', express.static(path.join(__dirname, 'uploads')));
+// Video routes handle serving videos from S3
+// app.use('/videos', express.static(path.join(__dirname, 'uploads')));
 
 // Video routes MUST come BEFORE the body parsers to avoid conflicts with multipart data
 app.use("/api/videos", videoRoutes);
+
+// Handle direct video access by redirecting to API
+app.get('/videos/:filename', (req, res) => {
+  res.redirect(`/api/videos/${req.params.filename}`);
+});
 
 // Standard parsers for JSON/urlencoded requests (these properly ignore multipart data)
 app.use(express.json({ limit: '100mb' }));

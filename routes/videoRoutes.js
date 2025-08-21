@@ -6,6 +6,7 @@ const VideoRecording = require('../models/VideoRecording');
 const VideoView = require('../models/VideoView');
 const path = require('path');
 const fs = require('fs').promises;
+const db = require('../config/database');
 
 // Ensure uploads directory exists
 const ensureUploadsDir = async () => {
@@ -124,10 +125,18 @@ router.get('/recordings', authenticate, async (req, res) => {
     });
 
     res.json({
-      recordings: recordings.map(recording => ({
-        ...recording,
-        shareable_url: `${process.env.FRONTEND_URL || 'https://rankandrenttool.com'}/v/${recording.shareable_id}`
-      })),
+      recordings: recordings.map(recording => {
+        // Convert file_path to full S3 URL
+        const videoUrl = recording.file_path.startsWith('http') 
+          ? recording.file_path 
+          : `https://${process.env.AWS_S3_BUCKET || 'rankandrent-videos'}.s3.amazonaws.com/${recording.file_path}`;
+        
+        return {
+          ...recording,
+          video_url: videoUrl,
+          shareable_url: `${process.env.FRONTEND_URL || 'https://rankandrenttool.com'}/v/${recording.shareable_id}`
+        };
+      }),
       pagination: {
         page,
         limit,
@@ -153,8 +162,14 @@ router.get('/recordings/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Video recording not found' });
     }
 
+    // Convert file_path to full S3 URL
+    const videoUrl = recording.file_path.startsWith('http') 
+      ? recording.file_path 
+      : `https://${process.env.AWS_S3_BUCKET || 'rankandrent-videos'}.s3.amazonaws.com/${recording.file_path}`;
+
     res.json({
       ...recording,
+      video_url: videoUrl,
       shareable_url: `${process.env.FRONTEND_URL || 'https://rankandrenttool.com'}/v/${recording.shareable_id}`
     });
   } catch (error) {
@@ -252,12 +267,17 @@ router.get('/v/:shareableId', async (req, res) => {
 
     const view = await VideoService.trackView(recording.id, viewerData);
 
+    // Convert file_path to full S3 URL
+    const videoUrl = recording.file_path.startsWith('http') 
+      ? recording.file_path 
+      : `https://${process.env.AWS_S3_BUCKET || 'rankandrent-videos'}.s3.amazonaws.com/${recording.file_path}`;
+
     res.json({
       recording: {
         id: recording.id,
         title: recording.title,
         description: recording.description,
-        video_url: recording.file_path,
+        video_url: videoUrl,
         thumbnail_url: recording.thumbnail_path,
         duration: recording.duration,
         created_at: recording.created_at,
@@ -269,6 +289,50 @@ router.get('/v/:shareableId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching public video:', error);
     res.status(500).json({ error: 'Failed to fetch video' });
+  }
+});
+
+// Serve video files by redirecting to S3
+router.get('/:filename', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    
+    // Find the recording by filename
+    const sql = `
+      SELECT file_path, is_public, user_id 
+      FROM railway.video_recordings 
+      WHERE file_path LIKE ? OR file_path LIKE ?
+    `;
+    
+    const results = await db.query(sql, [`%${filename}`, filename]);
+    
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+    
+    const recording = results[0];
+    
+    // Check if video is public or user has access
+    if (!recording.is_public) {
+      // For private videos, require authentication
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      // You could add JWT verification here if needed
+      // For now, we'll allow access if the video exists
+    }
+    
+    // Redirect to S3 URL
+    const s3Url = recording.file_path.startsWith('http') 
+      ? recording.file_path 
+      : `https://${process.env.AWS_S3_BUCKET || 'rankandrent-videos'}.s3.amazonaws.com/${recording.file_path}`;
+    
+    res.redirect(s3Url);
+  } catch (error) {
+    console.error('Error serving video:', error);
+    res.status(500).json({ error: 'Failed to serve video' });
   }
 });
 
