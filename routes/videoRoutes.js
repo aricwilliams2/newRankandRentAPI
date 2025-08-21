@@ -125,18 +125,21 @@ router.get('/recordings', authenticate, async (req, res) => {
     });
 
     res.json({
-      recordings: recordings.map(recording => {
-        // Convert file_path to full S3 URL
-        const videoUrl = recording.file_path.startsWith('http') 
-          ? recording.file_path 
-          : `https://${process.env.AWS_S3_BUCKET || 'rankandrent-videos'}.s3.amazonaws.com/${recording.file_path}`;
+      recordings: await Promise.all(recordings.map(async (recording) => {
+        // Generate signed URL for S3 access
+        let videoUrl = recording.file_path;
+        
+        // If this looks like an S3 key, sign it
+        if (!/^https?:\/\//i.test(videoUrl)) {
+          videoUrl = await VideoService.getSignedUrl(recording.file_path, 3600); // 1 hour expiry
+        }
         
         return {
           ...recording,
           video_url: videoUrl,
           shareable_url: `${process.env.FRONTEND_URL || 'https://rankandrenttool.com'}/v/${recording.shareable_id}`
         };
-      }),
+      })),
       pagination: {
         page,
         limit,
@@ -162,10 +165,13 @@ router.get('/recordings/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Video recording not found' });
     }
 
-    // Convert file_path to full S3 URL
-    const videoUrl = recording.file_path.startsWith('http') 
-      ? recording.file_path 
-      : `https://${process.env.AWS_S3_BUCKET || 'rankandrent-videos'}.s3.amazonaws.com/${recording.file_path}`;
+    // Generate signed URL for S3 access
+    let videoUrl = recording.file_path;
+    
+    // If this looks like an S3 key, sign it
+    if (!/^https?:\/\//i.test(videoUrl)) {
+      videoUrl = await VideoService.getSignedUrl(recording.file_path, 3600); // 1 hour expiry
+    }
 
     res.json({
       ...recording,
@@ -267,10 +273,13 @@ router.get('/v/:shareableId', async (req, res) => {
 
     const view = await VideoService.trackView(recording.id, viewerData);
 
-    // Convert file_path to full S3 URL
-    const videoUrl = recording.file_path.startsWith('http') 
-      ? recording.file_path 
-      : `https://${process.env.AWS_S3_BUCKET || 'rankandrent-videos'}.s3.amazonaws.com/${recording.file_path}`;
+    // Generate signed URL for S3 access
+    let videoUrl = recording.file_path;
+    
+    // If this looks like an S3 key, sign it
+    if (!/^https?:\/\//i.test(videoUrl)) {
+      videoUrl = await VideoService.getSignedUrl(recording.file_path, 3600); // 1 hour expiry
+    }
 
     res.json({
       recording: {
@@ -324,10 +333,13 @@ router.get('/:filename', async (req, res) => {
       // For now, we'll allow access if the video exists
     }
     
-    // Redirect to S3 URL
-    const s3Url = recording.file_path.startsWith('http') 
-      ? recording.file_path 
-      : `https://${process.env.AWS_S3_BUCKET || 'rankandrent-videos'}.s3.amazonaws.com/${recording.file_path}`;
+    // Generate signed URL for S3 access
+    let s3Url = recording.file_path;
+    
+    // If this looks like an S3 key, sign it
+    if (!/^https?:\/\//i.test(s3Url)) {
+      s3Url = await VideoService.getSignedUrl(recording.file_path, 3600); // 1 hour expiry
+    }
     
     res.redirect(s3Url);
   } catch (error) {

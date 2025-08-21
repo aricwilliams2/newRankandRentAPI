@@ -49,8 +49,8 @@ class VideoService {
         Bucket: BUCKET_NAME,
         Key: key,
         Body: fileContent,
-        ContentType: contentType,
-        ACL: 'public-read'  // Enable public read access for video sharing
+        ContentType: contentType
+        // ACL removed - bucket has Object Ownership = Bucket owner enforced
       };
 
       const result = await s3Client.send(new PutObjectCommand(params));
