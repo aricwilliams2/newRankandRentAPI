@@ -20,39 +20,41 @@ const ensureUploadsDir = async () => {
 
 ensureUploadsDir();
 
-// Upload video recording
-router.post('/upload', authenticate, VideoService.getUploadMiddleware().single('video'), async (req, res) => {
+// Upload video recording (single file or dual-stream)
+router.post('/upload', authenticate, VideoService.getDualStreamUploadMiddleware().fields([
+  { name: 'video', maxCount: 1 },    // Main screen recording
+  { name: 'webcam', maxCount: 1 }    // Webcam overlay (optional)
+]), async (req, res) => {
   try {
-    console.log('📹 Video upload request received');
+    console.log('📹 Single video upload request received');
     console.log('Content-Type:', req.headers['content-type']);
     console.log('User ID:', req.user?.id);
     
-    // SAFELY access body and file after Multer has processed them
+    // SAFELY access body and files after Multer has processed them
     const body = req.body || {};
-    const file = req.file || null;
+    const files = req.files || {};
     
     console.log('Body fields:', Object.keys(body));
-    console.log('File meta:', file && {
-      fieldname: file.fieldname,
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size
+    console.log('Files received:', {
+      video: files.video?.[0]?.originalname,
+      webcam: files.webcam?.[0]?.originalname,
+      totalFiles: Object.keys(files).length
     });
 
     console.log('📹 Processing video upload...');
-    console.log('File:', file?.originalname, 'Size:', file?.size);
     console.log('Form data received:', {
       title: body.title,
       description: body.description,
       recording_type: body.recording_type,
+      layout: body.layout,
       is_public: body.is_public
     });
 
-    // Validate that a file was uploaded
-    if (!file) {
+    // Validate that at least a screen recording was uploaded
+    if (!files.video || !files.video[0]) {
       return res.status(400).json({
-        error: 'No video file provided',
-        details: 'Please include a video file with the field name "video"'
+        error: 'No screen recording provided',
+        details: 'Please include a screen recording with the field name "video"'
       });
     }
 
@@ -65,40 +67,152 @@ router.post('/upload', authenticate, VideoService.getUploadMiddleware().single('
         id: Date.now(),
         title: body.title || 'Test Recording',
         description: body.description || '',
-        file_path: `/uploads/${file.originalname}`,
-        file_size: file.size,
-        duration: 0, // Will be calculated if FFmpeg is available
-        recording_type: body.recording_type || 'screen',
+        file_path: `/uploads/${files.video[0].originalname}`,
+        file_size: files.video[0].size,
+        duration: 0,
+        recording_type: files.webcam ? 'both' : (body.recording_type || 'screen'),
         shareable_id: Math.random().toString(36).substring(2, 15),
         is_public: body.is_public === 'true',
         created_at: new Date().toISOString(),
-        shareable_url: `http://localhost:3000/api/videos/v/${Math.random().toString(36).substring(2, 15)}`
+        shareable_url: `http://localhost:3000/api/videos/v/${Math.random().toString(36).substring(2, 15)}`,
+        composition: files.webcam ? {
+          layout: body.layout || 'top-right',
+          status: 'pending'
+        } : null
       };
 
       return res.status(200).json({
-        message: 'Video uploaded successfully (local storage - S3 not configured)',
+        message: files.webcam ? 'Dual-stream video uploaded successfully (local storage - S3 not configured)' : 'Screen recording uploaded successfully (local storage - S3 not configured)',
         recording: testRecording
       });
     }
 
-    // Original S3 upload logic
-    const recording = await VideoService.processVideoUpload(file, req.user.id, {
+    // Process upload (single or dual-stream)
+    const recording = await VideoService.processDualStreamUpload(files, req.user.id, {
       title: body.title || 'Untitled Recording',
       description: body.description || '',
       is_public: body.is_public === 'true',
       recording_type: body.recording_type || 'screen',
+      layout: body.layout || 'top-right',
       metadata: body.metadata ? JSON.parse(body.metadata) : {}
     });
 
+    const message = files.webcam ? 
+      'Dual-stream video composed and uploaded successfully' : 
+      'Video uploaded successfully';
+
     res.status(201).json({
-      message: 'Video uploaded successfully',
-      recording
+      message,
+      recording,
+      composition: files.webcam ? {
+        layout: body.layout || 'top-right',
+        status: 'completed'
+      } : null
     });
 
   } catch (error) {
     console.error('❌ Upload error:', error);
     res.status(500).json({ 
       error: 'Failed to upload video',
+      details: error.message 
+    });
+  }
+});
+
+// Upload dual-stream video recording (screen + webcam)
+router.post('/upload-dual', authenticate, VideoService.getDualStreamUploadMiddleware().fields([
+  { name: 'video', maxCount: 1 },    // Main screen recording
+  { name: 'webcam', maxCount: 1 }    // Webcam overlay (optional)
+]), async (req, res) => {
+  try {
+    console.log('🎬🎥 Dual-stream upload request received');
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('User ID:', req.user?.id);
+    
+    // SAFELY access body and files after Multer has processed them
+    const body = req.body || {};
+    const files = req.files || {};
+    
+    console.log('Body fields:', Object.keys(body));
+    console.log('Files received:', {
+      video: files.video?.[0]?.originalname,
+      webcam: files.webcam?.[0]?.originalname,
+      totalFiles: Object.keys(files).length
+    });
+
+    console.log('🎬🎥 Processing dual-stream upload...');
+    console.log('Form data received:', {
+      title: body.title,
+      description: body.description,
+      recording_type: body.recording_type,
+      layout: body.layout,
+      is_public: body.is_public
+    });
+
+    // Validate that at least a screen recording was uploaded
+    if (!files.video || !files.video[0]) {
+      return res.status(400).json({
+        error: 'No screen recording provided',
+        details: 'Please include a screen recording with the field name "video"'
+      });
+    }
+
+    // Check if AWS S3 is configured
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+      console.log('⚠️ AWS S3 not configured, using local storage for testing');
+      
+      // Create a simple response for testing without S3
+      const testRecording = {
+        id: Date.now(),
+        title: body.title || 'Test Dual Recording',
+        description: body.description || '',
+        file_path: `/uploads/${files.video[0].originalname}`,
+        file_size: files.video[0].size,
+        duration: 0,
+        recording_type: files.webcam ? 'both' : 'screen',
+        shareable_id: Math.random().toString(36).substring(2, 15),
+        is_public: body.is_public === 'true',
+        created_at: new Date().toISOString(),
+        shareable_url: `http://localhost:3000/api/videos/v/${Math.random().toString(36).substring(2, 15)}`,
+        composition: files.webcam ? {
+          layout: body.layout || 'top-right',
+          status: 'pending'
+        } : null
+      };
+
+      return res.status(200).json({
+        message: files.webcam ? 'Dual-stream video uploaded successfully (local storage - S3 not configured)' : 'Screen recording uploaded successfully (local storage - S3 not configured)',
+        recording: testRecording
+      });
+    }
+
+    // Process dual-stream upload
+    const recording = await VideoService.processDualStreamUpload(files, req.user.id, {
+      title: body.title || 'Untitled Recording',
+      description: body.description || '',
+      is_public: body.is_public === 'true',
+      recording_type: body.recording_type || 'screen',
+      layout: body.layout || 'top-right',
+      metadata: body.metadata ? JSON.parse(body.metadata) : {}
+    });
+
+    const message = files.webcam ? 
+      'Dual-stream video composed and uploaded successfully' : 
+      'Screen recording uploaded successfully';
+
+    res.status(201).json({
+      message,
+      recording,
+      composition: files.webcam ? {
+        layout: body.layout || 'top-right',
+        status: 'completed'
+      } : null
+    });
+
+  } catch (error) {
+    console.error('❌ Dual-stream upload error:', error);
+    res.status(500).json({ 
+      error: 'Failed to upload dual-stream video',
       details: error.message 
     });
   }

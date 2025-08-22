@@ -6,6 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const ffmpeg = require('fluent-ffmpeg');
 const VideoRecording = require('../models/VideoRecording');
 const VideoView = require('../models/VideoView');
+const VideoCompositionService = require('./VideoCompositionService');
 
 // AWS SDK v3 client
 const s3Client = new S3Client({
@@ -22,11 +23,44 @@ class VideoService {
   // Configure multer for file uploads
   static getUploadMiddleware() {
     const fileFilter = (req, file, cb) => {
-      const allowedTypes = ['video/mp4', 'video/webm', 'video/avi', 'video/mov'];
-      if (allowedTypes.includes(file.mimetype)) {
+      console.log('File upload attempt:', {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        fieldname: file.fieldname
+      });
+      
+      // Comprehensive list of video MIME types including WebM variants
+      const allowedMimeTypes = [
+        'video/webm',
+        'video/webm;codecs=vp8',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=vp9,opus',
+        'video/mp4', 
+        'video/mp4;codecs=h264',
+        'video/quicktime',
+        'video/x-msvideo',
+        'video/x-ms-wmv',
+        'video/ogg',
+        'video/mpeg',
+        'video/3gpp',
+        'video/3gpp2',
+        'video/avi',
+        'video/mov'
+      ];
+      
+      // Also check file extension as fallback for MIME type detection issues
+      const allowedExtensions = ['.webm', '.mp4', '.avi', '.mov', '.ogg', '.mpeg', '.3gp', '.wmv'];
+      const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+      
+      // Check if MIME type is in allowed list OR if file extension is video-related
+      if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
+        console.log('✅ File accepted:', file.mimetype, 'Extension:', fileExtension, 'Field:', file.fieldname);
         cb(null, true);
       } else {
-        cb(new Error('Invalid file type. Only video files are allowed.'), false);
+        console.log('❌ File rejected:', file.mimetype, 'Extension:', fileExtension, 'Field:', file.fieldname);
+        cb(new Error(`Invalid file type: ${file.mimetype} (${fileExtension}). Only video files are allowed.`), false);
       }
     };
 
@@ -34,7 +68,60 @@ class VideoService {
       storage: multer.memoryStorage(), // Use memory storage for better multipart handling
       fileFilter: fileFilter,
       limits: {
-        fileSize: 500 * 1024 * 1024 // 500MB limit
+        fileSize: 500 * 1024 * 1024 // 500MB limit per file
+      }
+    });
+  }
+
+  // Get multer middleware for dual-stream uploads
+  static getDualStreamUploadMiddleware() {
+    const fileFilter = (req, file, cb) => {
+      console.log('Dual-stream upload attempt:', {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        fieldname: file.fieldname
+      });
+      
+      // Comprehensive list of video MIME types including WebM variants
+      const allowedMimeTypes = [
+        'video/webm',
+        'video/webm;codecs=vp8',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=vp9,opus',
+        'video/mp4', 
+        'video/mp4;codecs=h264',
+        'video/quicktime',
+        'video/x-msvideo',
+        'video/x-ms-wmv',
+        'video/ogg',
+        'video/mpeg',
+        'video/3gpp',
+        'video/3gpp2',
+        'video/avi',
+        'video/mov'
+      ];
+      
+      // Also check file extension as fallback for MIME type detection issues
+      const allowedExtensions = ['.webm', '.mp4', '.avi', '.mov', '.ogg', '.mpeg', '.3gp', '.wmv'];
+      const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+      
+      // Check if MIME type is in allowed list OR if file extension is video-related
+      if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
+        console.log('✅ Dual-stream file accepted:', file.mimetype, 'Extension:', fileExtension, 'Field:', file.fieldname);
+        cb(null, true);
+      } else {
+        console.log('❌ Dual-stream file rejected:', file.mimetype, 'Extension:', fileExtension, 'Field:', file.fieldname);
+        cb(new Error(`Invalid file type: ${file.mimetype} (${fileExtension}). Only video files are allowed.`), false);
+      }
+    };
+
+    return multer({
+      storage: multer.memoryStorage(),
+      fileFilter: fileFilter,
+      limits: {
+        fileSize: 500 * 1024 * 1024 // 500MB limit per file
       }
     });
   }
@@ -134,18 +221,27 @@ class VideoService {
   // Process uploaded video file
   static async processVideoUpload(file, userId, metadata = {}) {
     try {
-      console.log('Processing video upload for user:', userId);
+      console.log('🎬 Processing video upload for user:', userId);
+      console.log('📁 File details:', {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        bufferLength: file.buffer ? file.buffer.length : 0
+      });
       
       // Generate unique filename
       const fileExtension = path.extname(file.originalname);
       const fileName = `${Date.now()}-${uuidv4()}${fileExtension}`;
       const tempPath = path.join(__dirname, '..', 'uploads', 'temp', fileName);
       
+      console.log('📂 Temp file path:', tempPath);
+      
       // Ensure temp directory exists
       await fs.mkdir(path.dirname(tempPath), { recursive: true });
       
       // Write buffer to temp file (since we're using memory storage)
       await fs.writeFile(tempPath, file.buffer);
+      console.log('💾 File written to temp location');
       
       // Get video duration
       const duration = await this.getVideoDuration(tempPath);
@@ -161,7 +257,9 @@ class VideoService {
       }
       
       // Upload to S3
+      console.log('☁️ Uploading to S3...');
       const s3Result = await this.uploadToS3(tempPath, fileName, file.mimetype);
+      console.log('✅ S3 upload successful:', s3Result.url);
       
       // Upload thumbnail if generated
       let thumbnailUrl = null;
@@ -177,6 +275,7 @@ class VideoService {
       }
       
       // Create database record
+      console.log('💾 Creating database record...');
       const recording = await this.createRecording({
         user_id: userId,
         title: metadata.title || 'Untitled Recording',
@@ -191,9 +290,115 @@ class VideoService {
         metadata: metadata.metadata || {}
       });
       
+      console.log('✅ Video upload processing completed successfully');
       return recording;
     } catch (error) {
-      console.error('Error processing video upload:', error);
+      console.error('❌ Error processing video upload:', error);
+      console.error('📋 Error details:', {
+        message: error.message,
+        stack: error.stack,
+        userId: userId,
+        fileName: file?.originalname
+      });
+      throw error;
+    }
+  }
+
+  // Process dual-stream video upload (screen + webcam)
+  static async processDualStreamUpload(files, userId, metadata = {}) {
+    try {
+      console.log('🎬🎥 Processing dual-stream upload for user:', userId);
+      console.log('📁 Files received:', {
+        screen: files.video?.[0]?.originalname,
+        webcam: files.webcam?.[0]?.originalname,
+        totalFiles: Object.keys(files).length
+      });
+      
+      const screenFile = files.video?.[0];
+      const webcamFile = files.webcam?.[0];
+      
+      if (!screenFile) {
+        throw new Error('No screen recording file provided');
+      }
+
+      // Process screen file first
+      console.log('📺 Processing screen recording...');
+      const screenRecording = await this.processVideoUpload(screenFile, userId, {
+        ...metadata,
+        recording_type: 'screen',
+        title: metadata.title || 'Screen Recording'
+      });
+
+      // If webcam file exists, compose the videos
+      if (webcamFile) {
+        console.log('📹 Processing webcam recording...');
+        const webcamRecording = await this.processVideoUpload(webcamFile, userId, {
+          ...metadata,
+          recording_type: 'webcam',
+          title: metadata.title || 'Webcam Recording'
+        });
+
+        // Compose the videos using VideoCompositionService
+        console.log('🎬 Composing dual-stream video...');
+        const layout = metadata.layout || 'top-right';
+        
+        try {
+          const composedVideoKey = await VideoCompositionService.composeVideoOverlay({
+            screenKey: screenRecording.file_path,
+            webcamKey: webcamRecording.file_path,
+            layout: layout,
+            outputKey: `composed/${Date.now()}-${uuidv4()}.webm`
+          });
+
+          // Update the screen recording with the composed video
+          await VideoRecording.update(screenRecording.id, {
+            file_path: composedVideoKey,
+            recording_type: 'both',
+            title: metadata.title || 'Screen + Webcam Recording',
+            metadata: {
+              ...metadata.metadata,
+              composition: {
+                layout: layout,
+                screen_recording_id: screenRecording.id,
+                webcam_recording_id: webcamRecording.id,
+                composed_at: new Date().toISOString()
+              }
+            }
+          });
+
+          // Delete the individual webcam recording from database and S3
+          await VideoRecording.delete(webcamRecording.id, userId);
+          await this.deleteFromS3(webcamRecording.file_path);
+
+          console.log('✅ Dual-stream composition completed successfully');
+          
+          // Return the updated screen recording (now contains composed video)
+          return await VideoRecording.findById(screenRecording.id, userId);
+
+        } catch (compositionError) {
+          console.error('❌ Video composition failed:', compositionError);
+          console.log('⚠️ Falling back to screen recording only');
+          
+          // Delete the webcam recording from database and S3
+          await VideoRecording.delete(webcamRecording.id, userId);
+          await this.deleteFromS3(webcamRecording.file_path);
+          
+          // Return the screen recording as fallback
+          return screenRecording;
+        }
+      }
+
+      // If no webcam file, return the screen recording
+      return screenRecording;
+
+    } catch (error) {
+      console.error('❌ Error processing dual-stream upload:', error);
+      console.error('📋 Error details:', {
+        message: error.message,
+        stack: error.stack,
+        userId: userId,
+        files: Object.keys(files || {})
+      });
       throw error;
     }
   }
