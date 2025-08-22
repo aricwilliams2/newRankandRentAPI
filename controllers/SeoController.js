@@ -361,7 +361,7 @@ class SeoController {
         });
       }
 
-      const { url, mode = 'subdomains' } = req.validatedQuery;
+      const { url, mode = 'exact' } = req.validatedQuery;
       
       const apiUrl = `${this.websiteTrafficBaseUrl}/traffic?url=${encodeURIComponent(url)}&mode=${mode}`;
        
