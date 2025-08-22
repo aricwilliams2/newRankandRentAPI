@@ -49,35 +49,38 @@ const seoValidationSchema = {
   }),
 
   websiteTraffic: Joi.object({
-    url: Joi.string().domain().required().messages({
-      "string.domain": "Please provide a valid domain name",
+    url: Joi.string().uri().required().messages({
+      "string.uri": "Please provide a valid URL",
       "any.required": "URL parameter is required",
     }),
-    mode: Joi.string().valid("subdomains", "exact").default("subdomains").messages({
+    mode: Joi.string().valid("subdomains", "exact").required().messages({
       "string.base": "Mode must be a string",
       "any.only": 'Mode must be either "subdomains" or "exact"',
+      "any.required": "Mode parameter is required",
     }),
   }),
 
   websiteAuthority: Joi.object({
-    url: Joi.string().domain().required().messages({
-      "string.domain": "Please provide a valid domain name",
+    url: Joi.string().uri().required().messages({
+      "string.uri": "Please provide a valid URL",
       "any.required": "URL parameter is required",
     }),
-    mode: Joi.string().valid("subdomains", "exact").default("subdomains").messages({
+    mode: Joi.string().valid("subdomains", "exact").required().messages({
       "string.base": "Mode must be a string",
       "any.only": 'Mode must be either "subdomains" or "exact"',
+      "any.required": "Mode parameter is required",
     }),
   }),
 
   websiteBacklinks: Joi.object({
-    url: Joi.string().domain().required().messages({
-      "string.domain": "Please provide a valid domain name",
+    url: Joi.string().uri().required().messages({
+      "string.uri": "Please provide a valid URL",
       "any.required": "URL parameter is required",
     }),
-    mode: Joi.string().valid("subdomains", "exact").default("subdomains").messages({
+    mode: Joi.string().valid("subdomains", "exact").required().messages({
       "string.base": "Mode must be a string",
       "any.only": 'Mode must be either "subdomains" or "exact"',
+      "any.required": "Mode parameter is required",
     }),
   }),
 };

@@ -351,17 +351,17 @@ class SeoController {
      /**
    * Get website traffic data
    */
-  async getWebsiteTraffic(req, res) {
-    try {
-      // Check if required configuration is available
-      if (!this.websiteTrafficBaseUrl || !this.rapidApiKey || !this.websiteTrafficApiHost) {
-        return res.status(500).json({
-          error: 'RapidAPI configuration missing',
-          message: 'RAPIDAPI_WEBSITE_TRAFFIC_HOST and RAPIDAPI_KEY environment variables are required'
-        });
-      }
+     async getWebsiteTraffic(req, res) {
+     try {
+       // Check if required configuration is available
+       if (!this.websiteTrafficBaseUrl || !this.rapidApiKey || !this.websiteTrafficApiHost) {
+         return res.status(500).json({
+           error: 'RapidAPI configuration missing',
+           message: 'RAPIDAPI_WEBSITE_TRAFFIC_HOST and RAPIDAPI_KEY environment variables are required'
+         });
+       }
 
-      const { url, mode = 'exact' } = req.validatedQuery;
+       const { url, mode } = req.validatedQuery;
       
       const apiUrl = `${this.websiteTrafficBaseUrl}/traffic?url=${encodeURIComponent(url)}&mode=${mode}`;
        
@@ -408,17 +408,17 @@ class SeoController {
      /**
    * Get website authority data
    */
-  async getWebsiteAuthority(req, res) {
-    try {
-      // Check if required configuration is available
-      if (!this.websiteTrafficBaseUrl || !this.rapidApiKey || !this.websiteTrafficApiHost) {
-        return res.status(500).json({
-          error: 'RapidAPI configuration missing',
-          message: 'RAPIDAPI_WEBSITE_TRAFFIC_HOST and RAPIDAPI_KEY environment variables are required'
-        });
-      }
+     async getWebsiteAuthority(req, res) {
+     try {
+       // Check if required configuration is available
+       if (!this.websiteTrafficBaseUrl || !this.rapidApiKey || !this.websiteTrafficApiHost) {
+         return res.status(500).json({
+           error: 'RapidAPI configuration missing',
+           message: 'RAPIDAPI_WEBSITE_TRAFFIC_HOST and RAPIDAPI_KEY environment variables are required'
+         });
+       }
 
-      const { url, mode = 'subdomains' } = req.validatedQuery;
+       const { url, mode } = req.validatedQuery;
       
       const apiUrl = `${this.websiteTrafficBaseUrl}/authority?url=${encodeURIComponent(url)}&mode=${mode}`;
        
@@ -449,17 +449,17 @@ class SeoController {
      /**
    * Get website backlinks data
    */
-  async getWebsiteBacklinks(req, res) {
-    try {
-      // Check if required configuration is available
-      if (!this.websiteTrafficBaseUrl || !this.rapidApiKey || !this.websiteTrafficApiHost) {
-        return res.status(500).json({
-          error: 'RapidAPI configuration missing',
-          message: 'RAPIDAPI_WEBSITE_TRAFFIC_HOST and RAPIDAPI_KEY environment variables are required'
-        });
-      }
+     async getWebsiteBacklinks(req, res) {
+     try {
+       // Check if required configuration is available
+       if (!this.websiteTrafficBaseUrl || !this.rapidApiKey || !this.websiteTrafficApiHost) {
+         return res.status(500).json({
+           error: 'RapidAPI configuration missing',
+           message: 'RAPIDAPI_WEBSITE_TRAFFIC_HOST and RAPIDAPI_KEY environment variables are required'
+         });
+       }
 
-      const { url, mode = 'subdomains' } = req.validatedQuery;
+       const { url, mode } = req.validatedQuery;
       
       const apiUrl = `${this.websiteTrafficBaseUrl}/backlinks?url=${encodeURIComponent(url)}&mode=${mode}`;
        
