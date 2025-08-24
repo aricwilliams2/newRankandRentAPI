@@ -19,9 +19,26 @@ class SavedKeyword {
     const kw = (keyword ?? '').trim();
     if (!kw) throw new Error('Keyword is required');
 
-    // Coerce numerics
-    const diffVal = (difficulty === undefined) ? null : Number(difficulty);
-    const volVal = (volume === undefined) ? null : Number(volume);
+    // Coerce numerics and handle string values
+    let diffVal = null;
+    if (difficulty !== undefined) {
+      if (typeof difficulty === 'number') {
+        diffVal = difficulty;
+      } else if (typeof difficulty === 'string') {
+        // Truncate to 255 characters to prevent database errors
+        diffVal = difficulty.substring(0, 255);
+      }
+    }
+    
+    let volVal = null;
+    if (volume !== undefined) {
+      if (typeof volume === 'number') {
+        volVal = volume;
+      } else if (typeof volume === 'string') {
+        // Truncate to 255 characters to prevent database errors
+        volVal = volume.substring(0, 255);
+      }
+    }
 
     // Normalize dates (null if bad)
     let formattedLastUpdated = null;
@@ -149,8 +166,26 @@ class SavedKeyword {
     const kid = Number(id);
     if (!Number.isInteger(uid) || !Number.isInteger(kid)) throw new Error('Invalid ids');
 
-    const diffVal = (difficulty === undefined) ? null : Number(difficulty);
-    const volVal = (volume === undefined) ? null : Number(volume);
+    // Coerce numerics and handle string values
+    let diffVal = null;
+    if (difficulty !== undefined) {
+      if (typeof difficulty === 'number') {
+        diffVal = difficulty;
+      } else if (typeof difficulty === 'string') {
+        // Truncate to 255 characters to prevent database errors
+        diffVal = difficulty.substring(0, 255);
+      }
+    }
+    
+    let volVal = null;
+    if (volume !== undefined) {
+      if (typeof volume === 'number') {
+        volVal = volume;
+      } else if (typeof volume === 'string') {
+        // Truncate to 255 characters to prevent database errors
+        volVal = volume.substring(0, 255);
+      }
+    }
 
     let formattedLastUpdated = null;
     if (last_updated) {
