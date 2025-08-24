@@ -30,6 +30,21 @@ const seoValidationSchema = {
     }),
   }),
 
+  keywordSuggestions: Joi.object({
+    keyword: Joi.string().min(1).max(100).required().messages({
+      "string.min": "Keyword must be at least 1 character long",
+      "string.max": "Keyword must be less than 100 characters",
+      "any.required": "Keyword parameter is required",
+    }),
+    country: Joi.string().length(2).default("us").messages({
+      "string.length": "Country must be a 2-letter country code",
+    }),
+    se: Joi.string().valid("google", "bing", "yahoo").default("google").messages({
+      "string.base": "Search engine must be a string",
+      "any.only": 'Search engine must be either "google", "bing", or "yahoo"',
+    }),
+  }),
+
   googleRankCheck: Joi.object({
     keyword: Joi.string().min(1).max(100).required().messages({
       "string.min": "Keyword must be at least 1 character long",
@@ -97,6 +112,22 @@ const backlinkValidationSchema = {
     domain: Joi.string().domain().required().messages({
       "string.domain": "Please provide a valid domain name",
       "any.required": "Domain parameter is required",
+    }),
+  }),
+};
+
+const googleSearchValidationSchema = {
+  search: Joi.object({
+    query: Joi.string().min(1).max(500).required().messages({
+      "string.min": "Query must be at least 1 character long",
+      "string.max": "Query must be less than 500 characters",
+      "any.required": "Query parameter is required",
+    }),
+    language: Joi.string().length(2).default("en").messages({
+      "string.length": "Language must be a 2-letter language code",
+    }),
+    country: Joi.string().length(2).default("us").messages({
+      "string.length": "Country must be a 2-letter country code",
     }),
   }),
 };
@@ -388,9 +419,73 @@ const authValidationSchema = {
   }),
 };
 
+const savedKeywordValidationSchema = {
+  save: Joi.object({
+    keyword: Joi.string().min(1).max(255).required().messages({
+      "string.min": "Keyword must be at least 1 character long",
+      "string.max": "Keyword must be less than 255 characters",
+      "any.required": "Keyword is required",
+    }),
+    difficulty: Joi.string().max(50).allow(null, ""),
+    volume: Joi.string().max(50).allow(null, ""),
+    last_updated: Joi.string().allow(null, ""),
+    search_engine: Joi.string().valid("google", "bing", "yahoo").default("google"),
+    country: Joi.string().length(2).default("us"),
+    category: Joi.string().valid("idea", "question").default("idea"),
+    notes: Joi.string().allow(null, ""),
+  }),
+
+  update: Joi.object({
+    difficulty: Joi.string().max(50).allow(null, ""),
+    volume: Joi.string().max(50).allow(null, ""),
+    last_updated: Joi.string().allow(null, ""),
+    search_engine: Joi.string().valid("google", "bing", "yahoo"),
+    country: Joi.string().length(2),
+    category: Joi.string().valid("idea", "question"),
+    notes: Joi.string().allow(null, ""),
+  }),
+
+  bulkSave: Joi.object({
+    keywords: Joi.array().items(
+      Joi.object({
+        keyword: Joi.string().min(1).max(255).required(),
+        difficulty: Joi.string().max(50).allow(null, ""),
+        volume: Joi.string().max(50).allow(null, ""),
+        last_updated: Joi.string().allow(null, ""),
+        search_engine: Joi.string().valid("google", "bing", "yahoo").default("google"),
+        country: Joi.string().length(2).default("us"),
+        category: Joi.string().valid("idea", "question").default("idea"),
+        notes: Joi.string().allow(null, ""),
+      })
+    ).min(1).required(),
+  }),
+};
+
 const validateAuth = (type) => {
   return (req, res, next) => {
     const schema = authValidationSchema[type];
+    const { error, value } = schema.validate(req.body);
+
+    if (error) {
+      const errors = error.details.reduce((acc, detail) => {
+        acc[detail.context.key] = [detail.message];
+        return acc;
+      }, {});
+
+      return res.status(422).json({
+        message: "The given data was invalid.",
+        errors: errors,
+      });
+    }
+
+    req.validatedData = value;
+    next();
+  };
+};
+
+const validateSavedKeyword = (type) => {
+  return (req, res, next) => {
+    const schema = savedKeywordValidationSchema[type];
     const { error, value } = schema.validate(req.body);
 
     if (error) {
@@ -419,4 +514,5 @@ module.exports = {
   validateWebsite,
   validateTask,
   validateAuth,
+  validateSavedKeyword,
 };

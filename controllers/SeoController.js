@@ -24,6 +24,8 @@ class SeoController {
    this.getWebsiteTraffic = this.getWebsiteTraffic.bind(this);
    this.getWebsiteAuthority = this.getWebsiteAuthority.bind(this);
    this.getWebsiteBacklinks = this.getWebsiteBacklinks.bind(this);
+   this.getKeywordSuggestions = this.getKeywordSuggestions.bind(this);
+   this.saveKeywordFromSuggestions = this.saveKeywordFromSuggestions.bind(this);
  }
  
    /**
@@ -483,6 +485,114 @@ class SeoController {
        res.status(500).json({ 
          error: 'Failed to fetch website backlinks',
          message: error.message 
+       });
+     }
+   }
+
+   /**
+    * Get keyword suggestions from RapidAPI
+    */
+   async getKeywordSuggestions(req, res) {
+     try {
+       const { keyword, country = 'us', se = 'google' } = req.query;
+
+       if (!keyword) {
+         return res.status(400).json({
+           error: 'Keyword parameter is required',
+           message: 'Please provide a keyword query parameter'
+         });
+       }
+
+       const apiUrl = `https://website-traffic-authority-backlinks.p.rapidapi.com/keyword_suggestions?keyword=${encodeURIComponent(keyword)}&se=${se}&country=${country}`;
+
+       const response = await fetch(apiUrl, {
+         method: 'GET',
+         headers: {
+           'x-rapidapi-key': this.rapidApiKey,
+           'x-rapidapi-host': 'website-traffic-authority-backlinks.p.rapidapi.com'
+         }
+       });
+
+       if (!response.ok) {
+         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
+       }
+
+       const data = await response.json();
+       res.json(data);
+
+     } catch (error) {
+       console.error('Error fetching keyword suggestions:', error);
+       res.status(500).json({
+         error: 'Failed to fetch keyword suggestions',
+         message: error.message
+       });
+     }
+   }
+
+   /**
+    * Save a keyword from suggestions to user's profile
+    */
+   async saveKeywordFromSuggestions(req, res) {
+     try {
+       const userId = req.user?.id;
+       if (!userId) {
+         return res.status(401).json({
+           error: 'Authentication required',
+           message: 'You must be logged in to save keywords'
+         });
+       }
+
+       const {
+         keyword,
+         difficulty,
+         volume,
+         last_updated,
+         search_engine = 'google',
+         country = 'us',
+         category = 'idea',
+         notes = null
+       } = req.body;
+
+       if (!keyword) {
+         return res.status(400).json({
+           error: 'Keyword is required',
+           message: 'Please provide a keyword to save'
+         });
+       }
+
+       const SavedKeyword = require('../models/SavedKeyword');
+
+       // Check if keyword is already saved
+       const isAlreadySaved = await SavedKeyword.isSaved(userId, keyword, category);
+       if (isAlreadySaved) {
+         return res.status(409).json({
+           error: 'Keyword already saved',
+           message: 'This keyword is already saved in your profile'
+         });
+       }
+
+       const savedKeyword = await SavedKeyword.create({
+         user_id: userId,
+         keyword,
+         difficulty,
+         volume,
+         last_updated,
+         search_engine,
+         country,
+         category,
+         notes
+       });
+
+       res.status(201).json({
+         message: 'Keyword saved successfully',
+         data: savedKeyword
+       });
+
+     } catch (error) {
+       console.error('Error saving keyword from suggestions:', error);
+       res.status(500).json({
+         error: 'Failed to save keyword',
+         message: error.message
        });
      }
    }

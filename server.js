@@ -18,6 +18,7 @@ const twilioRoutes = require("./routes/twilioRoutes");
 const callForwardingRoutes = require("./routes/callForwardingRoutes");
 const analyticsSnapshotRoutes = require("./routes/analyticsSnapshotRoutes");
 const videoRoutes = require("./routes/videoRoutes");
+const savedKeywordRoutes = require("./routes/savedKeywordRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -97,6 +98,7 @@ app.use("/api", callLogRoutes);
 app.use("/api/twilio", twilioRoutes);
 app.use("/api/call-forwarding", callForwardingRoutes);
 app.use("/api/analytics-snapshots", analyticsSnapshotRoutes);
+app.use("/api/saved-keywords", savedKeywordRoutes);
 
 // Error handler for upload errors
 app.use((err, req, res, next) => {

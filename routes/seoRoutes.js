@@ -8,6 +8,8 @@ const { authenticate } = require('../middleware/auth');
 router.get('/url-metrics', validateSeoRequest('urlMetrics'), SeoController.getUrlMetrics);
 router.get('/keyword-metrics', validateSeoRequest('keywordMetrics'), SeoController.getKeywordMetrics);
 router.get('/keyword-generator', validateSeoRequest('keywordGenerator'), SeoController.getKeywordIdeas);
+router.get('/keyword-suggestions', validateSeoRequest('keywordSuggestions'), SeoController.getKeywordSuggestions);
+router.post('/save-keyword', authenticate, SeoController.saveKeywordFromSuggestions);
 router.post('/google-rank-check', validateSeoRequest('googleRankCheck'), SeoController.checkGoogleRank);
 
 // Website traffic and backlinks API routes
