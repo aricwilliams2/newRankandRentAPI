@@ -20,6 +20,7 @@ const analyticsSnapshotRoutes = require("./routes/analyticsSnapshotRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const savedKeywordRoutes = require("./routes/savedKeywordRoutes");
+const checklistRoutes = require("./routes/checklist");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -101,6 +102,7 @@ app.use("/api/call-forwarding", callForwardingRoutes);
 app.use("/api/analytics-snapshots", analyticsSnapshotRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/saved-keywords", savedKeywordRoutes);
+app.use("/api/checklist", checklistRoutes);
 
 // Error handler for upload errors
 app.use((err, req, res, next) => {
