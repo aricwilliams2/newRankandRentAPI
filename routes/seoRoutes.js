@@ -16,7 +16,7 @@ router.post('/google-rank-check', validateSeoRequest('googleRankCheck'), SeoCont
 // Require auth for website traffic so we can associate snapshots with users
 router.get('/website-traffic', authenticate, validateSeoRequest('websiteTraffic'), SeoController.getWebsiteTraffic);
 router.get('/website-authority', validateSeoRequest('websiteAuthority'), SeoController.getWebsiteAuthority);
-router.get('/website-backlinks', validateSeoRequest('websiteBacklinks'), SeoController.getWebsiteBacklinks);
+router.get('/website-backlinks', SeoController.getWebsiteBacklinks);
 
 // Backlinks API routes
 router.post('/domain-backlinks', validateBacklinkRequest('domainBacklinks'), SeoController.getDomainBacklinks);

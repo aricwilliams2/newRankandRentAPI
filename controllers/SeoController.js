@@ -449,46 +449,67 @@ class SeoController {
      }
    }
  
-     /**
-   * Get website backlinks data
-   */
-     async getWebsiteBacklinks(req, res) {
-     try {
-       // Check if required configuration is available
-       if (!this.websiteTrafficBaseUrl || !this.rapidApiKey || !this.websiteTrafficApiHost) {
-         return res.status(500).json({
-           error: 'RapidAPI configuration missing',
-           message: 'RAPIDAPI_WEBSITE_TRAFFIC_HOST and RAPIDAPI_KEY environment variables are required'
-         });
-       }
+           /**
+    * Get website backlinks data
+    */
+      async getWebsiteBacklinks(req, res) {
+      try {
+        const { url, mode = 'subdomains' } = req.query;
 
-       const { url, mode } = req.validatedQuery;
-      
-      const apiUrl = `${this.websiteTrafficBaseUrl}/backlinks?url=${encodeURIComponent(url)}&mode=${mode}`;
-       
-       const response = await fetch(apiUrl, {
-         method: 'GET',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.websiteTrafficApiHost
-         }
-       });
- 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
- 
-       const data = await response.json();
-       
-       res.json(data);
-     } catch (error) {
-       console.error('Error fetching website backlinks:', error);
-       res.status(500).json({ 
-         error: 'Failed to fetch website backlinks',
-         message: error.message 
-       });
-     }
-   }
+        if (!url) {
+          return res.status(400).json({
+            error: 'url parameter is required',
+            message: 'Please provide ?url=https://example.com'
+          });
+        }
+
+        // basic URL sanity check
+        try { new URL(url); } catch {
+          return res.status(400).json({ error: 'Invalid URL', message: 'Provide a valid http(s) URL' });
+        }
+
+        // Check if required configuration is available
+        if (!this.websiteTrafficBaseUrl || !this.rapidApiKey || !this.websiteTrafficApiHost) {
+          return res.status(500).json({
+            error: 'RapidAPI configuration missing',
+            message: 'RAPIDAPI_WEBSITE_TRAFFIC_HOST and RAPIDAPI_KEY environment variables are required'
+          });
+        }
+
+        const safeMode = (mode === 'exact') ? 'exact' : 'subdomains';
+        const apiUrl = `${this.websiteTrafficBaseUrl}/backlinks?url=${encodeURIComponent(url)}&mode=${safeMode}`;
+
+        // optional timeout
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 15_000);
+
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': this.rapidApiKey,
+            'x-rapidapi-host': this.websiteTrafficApiHost
+          },
+          signal: ctrl.signal
+        });
+
+        clearTimeout(t);
+
+        if (!response.ok) {
+          const body = await response.text().catch(() => '');
+          throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText} ${body}`);
+        }
+
+        const data = await response.json();
+        return res.json(data);
+      } catch (error) {
+        const isTimeout = (error.name === 'AbortError');
+        console.error('Error fetching website backlinks:', error);
+        return res.status(isTimeout ? 504 : 500).json({
+          error: 'Failed to fetch website backlinks',
+          message: error.message
+        });
+      }
+    }
 
    /**
     * Get website backlinks by website ID
