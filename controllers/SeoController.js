@@ -24,8 +24,9 @@ class SeoController {
    this.getWebsiteTraffic = this.getWebsiteTraffic.bind(this);
    this.getWebsiteAuthority = this.getWebsiteAuthority.bind(this);
    this.getWebsiteBacklinks = this.getWebsiteBacklinks.bind(this);
-   this.getKeywordSuggestions = this.getKeywordSuggestions.bind(this);
-   this.saveKeywordFromSuggestions = this.saveKeywordFromSuggestions.bind(this);
+       this.getKeywordSuggestions = this.getKeywordSuggestions.bind(this);
+    this.saveKeywordFromSuggestions = this.saveKeywordFromSuggestions.bind(this);
+    this.getWebsiteBacklinksById = this.getWebsiteBacklinksById.bind(this);
  }
  
    /**
@@ -482,6 +483,61 @@ class SeoController {
        res.json(data);
      } catch (error) {
        console.error('Error fetching website backlinks:', error);
+       res.status(500).json({ 
+         error: 'Failed to fetch website backlinks',
+         message: error.message 
+       });
+     }
+   }
+
+   /**
+    * Get website backlinks by website ID
+    */
+   async getWebsiteBacklinksById(req, res) {
+     try {
+       const { websiteId } = req.params;
+       const { mode = 'subdomains' } = req.query;
+
+       // Check if required configuration is available
+       if (!this.websiteTrafficBaseUrl || !this.rapidApiKey || !this.websiteTrafficApiHost) {
+         return res.status(500).json({
+           error: 'RapidAPI configuration missing',
+           message: 'RAPIDAPI_WEBSITE_TRAFFIC_HOST and RAPIDAPI_KEY environment variables are required'
+         });
+       }
+
+       // Get website domain from database
+       const Website = require('../models/Website');
+       const website = await Website.findById(websiteId, req.user.id);
+       
+       if (!website) {
+         return res.status(404).json({
+           error: 'Website not found',
+           message: 'The specified website does not exist or you do not have access to it'
+         });
+       }
+
+       const url = website.domain;
+      
+       const apiUrl = `${this.websiteTrafficBaseUrl}/backlinks?url=${encodeURIComponent(url)}&mode=${mode}`;
+       
+       const response = await fetch(apiUrl, {
+         method: 'GET',
+         headers: {
+           'x-rapidapi-key': this.rapidApiKey,
+           'x-rapidapi-host': this.websiteTrafficApiHost
+         }
+       });
+
+       if (!response.ok) {
+         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
+       }
+
+       const data = await response.json();
+       
+       res.json(data);
+     } catch (error) {
+       console.error('Error fetching website backlinks by ID:', error);
        res.status(500).json({ 
          error: 'Failed to fetch website backlinks',
          message: error.message 
