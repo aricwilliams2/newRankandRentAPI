@@ -5,5 +5,6 @@ const SeoController = require('../controllers/SeoController');
 
 // Website analytics endpoints
 router.get('/websites/:websiteId/backlinks', authenticate, SeoController.getWebsiteBacklinksById);
+//routerMap.get('/websites/:websiteId/backlinks', authenticate, SeoController.getWebsiteBacklinks);
 
 module.exports = router;

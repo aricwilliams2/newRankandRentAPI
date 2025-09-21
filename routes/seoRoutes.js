@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const SeoController = require('../controllers/SeoController');
+const SeoControllerMap = require('../controllers/SeoControllerMap');
+
 const { validateSeoRequest, validateBacklinkRequest, validateGoogleSearchRequest } = require('../middleware/validation');
+const { validateAnalysis } = require('../middleware/seoValidation');
 const { authenticate } = require('../middleware/auth');
 
 // SEO API routes
@@ -27,5 +30,11 @@ router.post('/google-search', validateGoogleSearchRequest('search'), SeoControll
 
 // Health check
 router.get('/seo-health', SeoController.healthCheck);
+
+// SEO Heatmap routes
+router.post('/analyze', validateAnalysis, SeoControllerMap.runSEOAnalysis);
+router.get('/grid-sizes', SeoControllerMap.getGridSizes);
+router.post('/add-key', SeoControllerMap.addApiKey);
+router.get('/usage-stats', SeoControllerMap.getUsageStats);
 
 module.exports = router;

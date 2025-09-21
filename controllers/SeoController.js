@@ -1,3 +1,5 @@
+const axios = require('axios');
+
 class SeoController {
   constructor() {
    this.rapidApiKey = process.env.RAPIDAPI_KEY;
@@ -43,23 +45,18 @@ class SeoController {
          });
        }
  
-       const apiUrl = `${this.baseUrl}/url-metrics?url=${encodeURIComponent(url)}`;
-       
-       const response = await fetch(apiUrl, {
-         method: 'GET',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.rapidApiHost
-         }
-       });
- 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
- 
-       const data = await response.json();
-       
-       res.json(data);
+      const apiUrl = `${this.baseUrl}/url-metrics?url=${encodeURIComponent(url)}`;
+      
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.rapidApiHost
+        }
+      });
+
+      const data = response.data;
+      
+      res.json(data);
      } catch (error) {
        console.error('Error fetching URL metrics:', error);
        res.status(500).json({ 
@@ -83,23 +80,18 @@ class SeoController {
          });
        }
  
-       const apiUrl = `${this.baseUrl}/keyword-metrics?keyword=${encodeURIComponent(keyword)}&country=${country}`;
-       
-       const response = await fetch(apiUrl, {
-         method: 'GET',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.rapidApiHost
-         }
-       });
- 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
- 
-       const data = await response.json();
-       
-       res.json(data);
+      const apiUrl = `${this.baseUrl}/keyword-metrics?keyword=${encodeURIComponent(keyword)}&country=${country}`;
+      
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.rapidApiHost
+        }
+      });
+
+      const data = response.data;
+      
+      res.json(data);
      } catch (error) {
        console.error('Error fetching keyword metrics:', error);
        res.status(500).json({ 
@@ -123,23 +115,18 @@ class SeoController {
          });
        }
  
-       const apiUrl = `${this.baseUrl}/keyword-generator?keyword=${encodeURIComponent(keyword)}&country=${country}`;
-       
-       const response = await fetch(apiUrl, {
-         method: 'GET',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.rapidApiHost
-         }
-       });
- 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
- 
-       const data = await response.json();
-       
-       res.json(data);
+      const apiUrl = `${this.baseUrl}/keyword-generator?keyword=${encodeURIComponent(keyword)}&country=${country}`;
+      
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.rapidApiHost
+        }
+      });
+
+      const data = response.data;
+      
+      res.json(data);
      } catch (error) {
        console.error('Error fetching keyword ideas:', error);
        res.status(500).json({ 
@@ -154,18 +141,17 @@ class SeoController {
     */
    async healthCheck(req, res) {
      try {
-       // Test with a simple keyword metrics call
-       const testUrl = `${this.baseUrl}/keyword-metrics?keyword=test&country=us`;
-       
-       const response = await fetch(testUrl, {
-         method: 'GET',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.rapidApiHost
-         }
-       });
- 
-       const isHealthy = response.status === 200 || response.status === 429; // 429 = rate limited but API is working
+      // Test with a simple keyword metrics call
+      const testUrl = `${this.baseUrl}/keyword-metrics?keyword=test&country=us`;
+      
+      const response = await axios.get(testUrl, {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.rapidApiHost
+        }
+      });
+
+      const isHealthy = response.status === 200 || response.status === 429; // 429 = rate limited but API is working
        
        res.json({
          status: isHealthy ? 'healthy' : 'unhealthy',
@@ -198,28 +184,22 @@ class SeoController {
          });
        }
  
-       const apiUrl = `${this.backlinksBaseUrl}/seolizer`;
-       
-       const response = await fetch(apiUrl, {
-         method: 'POST',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.backlinksApiHost,
-           'Content-Type': 'application/json'
-         },
-         body: JSON.stringify({
-           approute: 'domain_backlinks',
-           domain: domain
-         })
-       });
- 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
- 
-       const data = await response.json();
-       
-       res.json(data);
+      const apiUrl = `${this.backlinksBaseUrl}/seolizer`;
+      
+      const response = await axios.post(apiUrl, {
+        approute: 'domain_backlinks',
+        domain: domain
+      }, {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.backlinksApiHost,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = response.data;
+      
+      res.json(data);
      } catch (error) {
        console.error('Error fetching domain backlinks:', error);
        res.status(500).json({ 
@@ -243,28 +223,22 @@ class SeoController {
          });
        }
  
-       const apiUrl = `${this.backlinksBaseUrl}/seolizer`;
-       
-       const response = await fetch(apiUrl, {
-         method: 'POST',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.backlinksApiHost,
-           'Content-Type': 'application/json'
-         },
-         body: JSON.stringify({
-           approute: 'domain_keywords',
-           domain: domain
-         })
-       });
- 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
- 
-       const data = await response.json();
-       
-       res.json(data);
+      const apiUrl = `${this.backlinksBaseUrl}/seolizer`;
+      
+      const response = await axios.post(apiUrl, {
+        approute: 'domain_keywords',
+        domain: domain
+      }, {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.backlinksApiHost,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = response.data;
+      
+      res.json(data);
      } catch (error) {
        console.error('Error fetching domain keywords:', error);
        res.status(500).json({ 
@@ -281,25 +255,19 @@ class SeoController {
      try {
        const { keyword, url, country = 'us', id = 'google-serp' } = req.validatedQuery;
        
-       const apiUrl = `${this.rankCheckerBaseUrl}/id?keyword=${encodeURIComponent(keyword)}&url=${encodeURIComponent(url)}&country=${country}&id=${id}`;
-       
-       const response = await fetch(apiUrl, {
-         method: 'POST',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.rankCheckerApiHost,
-           'Content-Type': 'text/plain'
-         },
-         body: 'rank check request'
-       });
- 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
- 
-       const data = await response.json();
-       
-       res.json(data);
+      const apiUrl = `${this.rankCheckerBaseUrl}/id?keyword=${encodeURIComponent(keyword)}&url=${encodeURIComponent(url)}&country=${country}&id=${id}`;
+      
+      const response = await axios.post(apiUrl, 'rank check request', {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.rankCheckerApiHost,
+          'Content-Type': 'text/plain'
+        }
+      });
+
+      const data = response.data;
+      
+      res.json(data);
      } catch (error) {
        console.error('Error checking Google rank:', error);
        res.status(500).json({ 
@@ -316,32 +284,26 @@ class SeoController {
      try {
        const { query, language = 'en', country = 'us' } = req.validatedBody;
        
-       const apiUrl = this.googleSearchBaseUrl;
-       
-       const response = await fetch(apiUrl, {
-         method: 'POST',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.googleSearchApiHost,
-           'Content-Type': 'application/json'
-         },
-         body: JSON.stringify({
-           actor: 'scraper.google.search',
-           input: {
-             q: query,
-             hl: language,
-             gl: country
-           }
-         })
-       });
- 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
- 
-       const data = await response.json();
-       
-       res.json(data);
+      const apiUrl = this.googleSearchBaseUrl;
+      
+      const response = await axios.post(apiUrl, {
+        actor: 'scraper.google.search',
+        input: {
+          q: query,
+          hl: language,
+          gl: country
+        }
+      }, {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.googleSearchApiHost,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = response.data;
+      
+      res.json(data);
      } catch (error) {
        console.error('Error searching Google:', error);
        res.status(500).json({ 
@@ -367,20 +329,15 @@ class SeoController {
        const { url, mode } = req.validatedQuery;
       
       const apiUrl = `${this.websiteTrafficBaseUrl}/traffic?url=${encodeURIComponent(url)}&mode=${mode}`;
-       
-       const response = await fetch(apiUrl, {
-         method: 'GET',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.websiteTrafficApiHost
-         }
-       });
- 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
- 
-       const data = await response.json();
+      
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.websiteTrafficApiHost
+        }
+      });
+
+      const data = response.data;
 
        // Persist snapshot for authenticated users
        try {
@@ -424,22 +381,17 @@ class SeoController {
        const { url, mode } = req.validatedQuery;
       
       const apiUrl = `${this.websiteTrafficBaseUrl}/authority?url=${encodeURIComponent(url)}&mode=${mode}`;
-       
-       const response = await fetch(apiUrl, {
-         method: 'GET',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.websiteTrafficApiHost
-         }
-       });
- 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
- 
-       const data = await response.json();
-       
-       res.json(data);
+      
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.websiteTrafficApiHost
+        }
+      });
+
+      const data = response.data;
+      
+      res.json(data);
      } catch (error) {
        console.error('Error fetching website authority:', error);
        res.status(500).json({ 
@@ -483,23 +435,18 @@ class SeoController {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 15_000);
 
-        const response = await fetch(apiUrl, {
-          method: 'GET',
+        const response = await axios.get(apiUrl, {
           headers: {
             'x-rapidapi-key': this.rapidApiKey,
             'x-rapidapi-host': this.websiteTrafficApiHost
           },
+          timeout: 15000,
           signal: ctrl.signal
         });
 
         clearTimeout(t);
 
-        if (!response.ok) {
-          const body = await response.text().catch(() => '');
-          throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText} ${body}`);
-        }
-
-        const data = await response.json();
+        const data = response.data;
         return res.json(data);
       } catch (error) {
         const isTimeout = (error.name === 'AbortError');
@@ -540,23 +487,18 @@ class SeoController {
 
        const url = website.domain;
       
-       const apiUrl = `${this.websiteTrafficBaseUrl}/backlinks?url=${encodeURIComponent(url)}&mode=${mode}`;
-       
-       const response = await fetch(apiUrl, {
-         method: 'GET',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': this.websiteTrafficApiHost
-         }
-       });
+      const apiUrl = `${this.websiteTrafficBaseUrl}/backlinks?url=${encodeURIComponent(url)}&mode=${mode}`;
+      
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': this.websiteTrafficApiHost
+        }
+      });
 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
-
-       const data = await response.json();
-       
-       res.json(data);
+      const data = response.data;
+      
+      res.json(data);
      } catch (error) {
        console.error('Error fetching website backlinks by ID:', error);
        res.status(500).json({ 
@@ -580,21 +522,16 @@ class SeoController {
          });
        }
 
-       const apiUrl = `https://website-traffic-authority-backlinks.p.rapidapi.com/keyword_suggestions?keyword=${encodeURIComponent(keyword)}&se=${se}&country=${country}`;
+      const apiUrl = `https://website-traffic-authority-backlinks.p.rapidapi.com/keyword_suggestions?keyword=${encodeURIComponent(keyword)}&se=${se}&country=${country}`;
 
-       const response = await fetch(apiUrl, {
-         method: 'GET',
-         headers: {
-           'x-rapidapi-key': this.rapidApiKey,
-           'x-rapidapi-host': 'website-traffic-authority-backlinks.p.rapidapi.com'
-         }
-       });
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'x-rapidapi-key': this.rapidApiKey,
+          'x-rapidapi-host': 'website-traffic-authority-backlinks.p.rapidapi.com'
+        }
+      });
 
-       if (!response.ok) {
-         throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}`);
-       }
-
-       const data = await response.json();
+      const data = response.data;
        res.json(data);
 
      } catch (error) {
