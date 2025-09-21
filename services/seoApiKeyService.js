@@ -66,6 +66,61 @@ class SEOApiKeyService {
   }
 
   /**
+   * Get the next API key if current one has reached 240 calls
+   * @param {string} currentApiKey - The current API key to check
+   * @returns {string|null} Next API key or null if none available
+   */
+  async getNextApiKeyIfNeeded(currentApiKey) {
+    try {
+      const connection = await this.getConnection();
+      
+      // Check current API key usage
+      const checkCurrentKeySQL = `
+        SELECT count, id
+        FROM heatmap 
+        WHERE api_key = ? 
+        AND date_created >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ORDER BY id DESC
+        LIMIT 1
+      `;
+      
+      const [currentRows] = await connection.execute(checkCurrentKeySQL, [currentApiKey]);
+      
+      if (currentRows.length > 0 && currentRows[0].count >= 240) {
+        console.log(`⚠️  Current API key ID ${currentRows[0].id} has reached 240 calls (${currentRows[0].count}/249), switching to next key`);
+        
+        // Get the next API key with higher ID
+        const getNextKeySQL = `
+          SELECT api_key, count, id
+          FROM heatmap 
+          WHERE date_created >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+          AND count < 249
+          AND id > ?
+          ORDER BY id ASC
+          LIMIT 1
+        `;
+        
+        const [nextRows] = await connection.execute(getNextKeySQL, [currentRows[0].id]);
+        
+        if (nextRows.length > 0) {
+          console.log(`✅ Switching to API key ID ${nextRows[0].id} with ${nextRows[0].count}/249 calls used`);
+          return nextRows[0].api_key;
+        } else {
+          console.log('❌ No next API key available');
+          return null;
+        }
+      }
+      
+      // Current key is still good
+      return currentApiKey;
+      
+    } catch (error) {
+      console.error('Error checking next API key:', error);
+      return currentApiKey; // Return current key as fallback
+    }
+  }
+
+  /**
    * Increment the usage count for an API key
    * @param {string} apiKey - The API key to increment
    * @param {number} callsMade - Number of API calls made (default: 1)
@@ -109,6 +164,7 @@ class SEOApiKeyService {
       console.error('Error incrementing API key usage:', error);
     }
   }
+
 
   /**
    * Add a new API key to the rotation

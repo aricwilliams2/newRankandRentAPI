@@ -190,7 +190,17 @@ exports.runSEOAnalysis = async (req, res) => {
     }
     
     // Get available SerpApi key from database
-    const serpapiKey = await seoApiKeyService.getAvailableApiKey();
+    let serpapiKey = await seoApiKeyService.getAvailableApiKey();
+    
+    if (!serpapiKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'No available SerpApi keys. All keys have reached their monthly limit (249 calls).'
+      });
+    }
+    
+    // Check if current API key has reached 240 calls and switch if needed
+    serpapiKey = await seoApiKeyService.getNextApiKeyIfNeeded(serpapiKey);
     
     if (!serpapiKey) {
       return res.status(500).json({
