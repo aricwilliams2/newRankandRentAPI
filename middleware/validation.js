@@ -417,6 +417,140 @@ const authValidationSchema = {
       "any.required": "Password is required",
     }),
   }),
+
+  forgotPassword: Joi.object({
+    email: Joi.string().email().required().messages({
+      "string.email": "Please enter a valid email address",
+      "any.required": "Email is required",
+    }),
+  }),
+
+  resetPassword: Joi.object({
+    email: Joi.string().email().required().messages({
+      "string.email": "Please enter a valid email address (e.g., user@example.com)",
+      "any.required": "Email address is required to reset your password",
+      "string.empty": "Email address cannot be empty"
+    }),
+    newPassword: Joi.string().min(8).max(255).required().messages({
+      "string.min": "New password must be at least 8 characters long for security",
+      "string.max": "New password is too long (maximum 255 characters)",
+      "any.required": "New password is required",
+      "string.empty": "New password cannot be empty"
+    }),
+    securityAnswers: Joi.array().items(
+      Joi.string().min(1).max(255).required().messages({
+        "string.min": "Security answer cannot be empty - please provide your answer",
+        "string.max": "Security answer is too long (maximum 255 characters)",
+        "any.required": "Security answer is required",
+        "string.empty": "Security answer cannot be empty"
+      })
+    ).min(1).required().messages({
+      "array.min": "Please provide at least one security answer to verify your identity",
+      "any.required": "Security answers are required to reset your password",
+      "array.base": "Security answers must be provided as a list (e.g., [\"answer1\", \"answer2\"])"
+    }),
+  }),
+
+  changePassword: Joi.object({
+    currentPassword: Joi.string().required().messages({
+      "any.required": "Current password is required",
+    }),
+    newPassword: Joi.string().min(8).max(255).required().messages({
+      "string.min": "New password must be at least 8 characters long",
+      "string.max": "New password must be less than 255 characters",
+      "any.required": "New password is required",
+    }),
+  }),
+
+  changePasswordSimple: Joi.object({
+    newPassword: Joi.string().min(8).max(255).required().messages({
+      "string.min": "New password must be at least 8 characters long for security",
+      "string.max": "New password is too long (maximum 255 characters)",
+      "any.required": "New password is required",
+      "string.empty": "New password cannot be empty"
+    }),
+  }),
+
+  updateAnswers: Joi.object({
+    answers: Joi.array().items(
+      Joi.string().min(2).max(255).required().messages({
+        "string.min": "Answer must be at least 2 characters long",
+        "string.max": "Answer must be less than 255 characters",
+        "any.required": "Answer is required",
+        "string.empty": "Answer cannot be empty"
+      })
+    ).min(1).required().messages({
+      "array.min": "At least one answer is required",
+      "any.required": "Answers array is required",
+      "array.base": "Answers must be provided as a list"
+    }),
+  }),
+
+  add: Joi.object({
+    questions: Joi.array().items(
+      Joi.object({
+        predefined_question_id: Joi.number().integer().positive().required().messages({
+          "number.base": "Question ID must be a number",
+          "number.integer": "Question ID must be an integer",
+          "number.positive": "Question ID must be positive",
+          "any.required": "Question ID is required",
+        }),
+        answer: Joi.string().min(2).max(255).required().messages({
+          "string.min": "Answer must be at least 2 characters long",
+          "string.max": "Answer must be less than 255 characters",
+          "any.required": "Answer is required",
+        }),
+      })
+    ).min(1).max(5).required().messages({
+      "array.min": "At least 1 security question is required",
+      "array.max": "Maximum 5 security questions allowed",
+      "any.required": "Questions array is required",
+    }),
+  }),
+
+  delete: Joi.object({
+    questionIds: Joi.array().items(
+      Joi.number().integer().positive().required().messages({
+        "number.base": "Question ID must be a number",
+        "number.integer": "Question ID must be an integer",
+        "number.positive": "Question ID must be positive",
+        "any.required": "Question ID is required",
+      })
+    ).min(1).required().messages({
+      "array.min": "At least one question ID is required",
+      "any.required": "Question IDs array is required",
+      "array.base": "Question IDs must be provided as a list of numbers"
+    }),
+  }),
+
+  setupSecurityQuestionsForgot: Joi.object({
+    email: Joi.string().email().required().messages({
+      "string.email": "Please enter a valid email address (e.g., user@example.com)",
+      "any.required": "Email address is required to set up security questions",
+      "string.empty": "Email address cannot be empty"
+    }),
+    questions: Joi.array().items(
+      Joi.object({
+        predefined_question_id: Joi.number().integer().positive().required().messages({
+          "number.base": "Question ID must be a number - please select from the predefined questions list",
+          "number.integer": "Question ID must be a whole number",
+          "number.positive": "Question ID must be a positive number",
+          "any.required": "Question ID is required - please select a predefined question",
+        }),
+        answer: Joi.string().min(2).max(255).required().messages({
+          "string.min": "Answer must be at least 2 characters long",
+          "string.max": "Answer is too long (maximum 255 characters)",
+          "any.required": "Answer is required for this security question",
+          "string.empty": "Answer cannot be empty"
+        }),
+      })
+    ).min(1).max(5).required().messages({
+      "array.min": "Please select at least 1 security question to set up",
+      "array.max": "You can select up to 5 security questions maximum",
+      "any.required": "Security questions are required to set up",
+      "array.base": "Questions must be provided as a list of question objects"
+    }),
+  }),
 };
 
 const savedKeywordValidationSchema = {
@@ -505,6 +639,134 @@ const validateSavedKeyword = (type) => {
   };
 };
 
+const securityQuestionValidationSchema = {
+  setup: Joi.object({
+    questions: Joi.array().items(
+      Joi.object({
+        predefined_question_id: Joi.number().integer().positive().required().messages({
+          "number.base": "Predefined question ID must be a number",
+          "number.integer": "Predefined question ID must be an integer",
+          "number.positive": "Predefined question ID must be positive",
+          "any.required": "Predefined question ID is required",
+        }),
+        answer: Joi.string().min(2).max(255).required().messages({
+          "string.min": "Answer must be at least 2 characters long",
+          "string.max": "Answer must be less than 255 characters",
+          "any.required": "Answer is required",
+        }),
+      })
+    ).min(1).max(5).required().messages({
+      "array.min": "At least 1 security question is required",
+      "array.max": "Maximum 5 security questions allowed",
+      "any.required": "Questions array is required",
+    }),
+  }),
+
+  setupForForgotPassword: Joi.object({
+    email: Joi.string().email().required().messages({
+      "string.email": "Please enter a valid email address",
+      "any.required": "Email is required",
+    }),
+    questions: Joi.array().items(
+      Joi.object({
+        predefined_question_id: Joi.number().integer().positive().required().messages({
+          "number.base": "Predefined question ID must be a number",
+          "number.integer": "Predefined question ID must be an integer",
+          "number.positive": "Predefined question ID must be positive",
+          "any.required": "Predefined question ID is required",
+        }),
+        answer: Joi.string().min(2).max(255).required().messages({
+          "string.min": "Answer must be at least 2 characters long",
+          "string.max": "Answer must be less than 255 characters",
+          "any.required": "Answer is required",
+        }),
+      })
+    ).min(2).max(5).required().messages({
+      "array.min": "At least 2 security questions are required",
+      "array.max": "Maximum 5 security questions allowed",
+      "any.required": "Questions array is required",
+    }),
+  }),
+
+  update: Joi.object({
+    questions: Joi.array().items(
+      Joi.object({
+        predefined_question_id: Joi.number().integer().positive().required().messages({
+          "number.base": "Predefined question ID must be a number",
+          "number.integer": "Predefined question ID must be an integer",
+          "number.positive": "Predefined question ID must be positive",
+          "any.required": "Predefined question ID is required",
+        }),
+        answer: Joi.string().min(2).max(255).required().messages({
+          "string.min": "Answer must be at least 2 characters long",
+          "string.max": "Answer must be less than 255 characters",
+          "any.required": "Answer is required",
+        }),
+      })
+    ).min(1).max(5).required().messages({
+      "array.min": "At least 1 security question is required",
+      "array.max": "Maximum 5 security questions allowed",
+      "any.required": "Questions array is required",
+    }),
+  }),
+
+  verify: Joi.object({
+    answers: Joi.array().items(
+      Joi.string().min(1).max(255).required().messages({
+        "string.min": "Answer cannot be empty",
+        "string.max": "Answer must be less than 255 characters",
+        "any.required": "Answer is required",
+      })
+    ).min(1).required().messages({
+      "array.min": "At least one answer is required",
+      "any.required": "Answers array is required",
+    }),
+  }),
+
+  changePassword: Joi.object({
+    currentPassword: Joi.string().required().messages({
+      "any.required": "Current password is required",
+    }),
+    newPassword: Joi.string().min(8).max(255).required().messages({
+      "string.min": "New password must be at least 8 characters long",
+      "string.max": "New password must be less than 255 characters",
+      "any.required": "New password is required",
+    }),
+    securityAnswers: Joi.array().items(
+      Joi.string().min(1).max(255).required().messages({
+        "string.min": "Security answer cannot be empty",
+        "string.max": "Security answer must be less than 255 characters",
+        "any.required": "Security answer is required",
+      })
+    ).min(1).required().messages({
+      "array.min": "At least one security answer is required",
+      "any.required": "Security answers array is required",
+    }),
+  }),
+};
+
+const validateSecurityQuestion = (type) => {
+  return (req, res, next) => {
+    const schema = securityQuestionValidationSchema[type];
+    const { error, value } = schema.validate(req.body);
+
+    if (error) {
+      const errors = error.details.reduce((acc, detail) => {
+        acc[detail.context.key] = [detail.message];
+        return acc;
+      }, {});
+
+      return res.status(422).json({
+        message: "The given data was invalid.",
+        errors: errors,
+      });
+    }
+
+    req.validatedData = value;
+    next();
+  };
+};
+
 module.exports = {
   validateLead,
   validateClient,
@@ -515,4 +777,5 @@ module.exports = {
   validateTask,
   validateAuth,
   validateSavedKeyword,
+  validateSecurityQuestion,
 };

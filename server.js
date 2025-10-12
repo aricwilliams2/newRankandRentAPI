@@ -21,6 +21,7 @@ const analyticsRoutes = require("./routes/analyticsRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const savedKeywordRoutes = require("./routes/savedKeywordRoutes");
 const checklistRoutes = require("./routes/checklist");
+const securityQuestionRoutes = require("./routes/securityQuestionRoutes");
 
 
 const app = express();
@@ -105,6 +106,7 @@ app.use("/api/analytics-snapshots", analyticsSnapshotRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/saved-keywords", savedKeywordRoutes);
 app.use("/api/checklist", checklistRoutes);
+app.use("/api/security-questions", securityQuestionRoutes);
 
 // Error handler for upload errors
 app.use((err, req, res, next) => {

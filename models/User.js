@@ -102,6 +102,25 @@ class User {
     return await User.findById(id);
   }
 
+  static async updatePassword(id, newPassword) {
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const now = new Date();
+    const sql = "UPDATE users SET password = ?, updated_at = ? WHERE id = ?";
+    await db.query(sql, [hashedPassword, now, id]);
+    return await User.findById(id);
+  }
+
+  async hasSecurityQuestions() {
+    const SecurityQuestion = require('./SecurityQuestion');
+    const questions = await SecurityQuestion.findByUserId(this.id);
+    return questions.length > 0;
+  }
+
+  async getSecurityQuestions() {
+    const SecurityQuestion = require('./SecurityQuestion');
+    return await SecurityQuestion.findByUserId(this.id);
+  }
+
   toJSON() {
     const { password, ...userWithoutPassword } = this;
     return userWithoutPassword;
