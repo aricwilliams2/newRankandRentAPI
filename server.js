@@ -20,6 +20,7 @@ const analyticsSnapshotRoutes = require("./routes/analyticsSnapshotRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const savedKeywordRoutes = require("./routes/savedKeywordRoutes");
+const keywordTrackingRoutes = require("./routes/keywordTrackingRoutes");
 const checklistRoutes = require("./routes/checklist");
 const securityQuestionRoutes = require("./routes/securityQuestionRoutes");
 
@@ -105,6 +106,7 @@ app.use("/api/call-forwarding", callForwardingRoutes);
 app.use("/api/analytics-snapshots", analyticsSnapshotRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/saved-keywords", savedKeywordRoutes);
+app.use("/api/keyword-tracking", keywordTrackingRoutes);
 app.use("/api/checklist", checklistRoutes);
 app.use("/api/security-questions", securityQuestionRoutes);
 
@@ -215,6 +217,35 @@ app.get("/api/endpoints", (req, res) => {
       method: "DELETE",
       path: "/api/clients/:id",
       description: "Delete a client",
+    },
+
+    // Website endpoints (same format as clients)
+    {
+      method: "GET",
+      path: "/api/clients/websites",
+      description: "Get all websites with filtering, searching, and pagination (same format as clients)",
+      parameters: "status, search, sort_by, sort_dir, page, per_page",
+    },
+    {
+      method: "GET",
+      path: "/api/clients/websites/:id",
+      description: "Get a specific website by ID (same format as clients)",
+    },
+    {
+      method: "POST",
+      path: "/api/clients/websites",
+      description: "Create a new website (same format as clients)",
+      required_fields: "domain",
+    },
+    {
+      method: "PUT",
+      path: "/api/clients/websites/:id",
+      description: "Update an existing website (same format as clients)",
+    },
+    {
+      method: "DELETE",
+      path: "/api/clients/websites/:id",
+      description: "Delete a website (same format as clients)",
     },
 
     // Dashboard endpoints
@@ -458,6 +489,62 @@ app.get("/api/endpoints", (req, res) => {
       method: "DELETE",
       path: "/api/twilio/recordings/:recordingSid",
       description: "Delete a recording",
+      auth_required: true,
+    },
+
+    // Keyword tracking endpoints
+    {
+      method: "POST",
+      path: "/api/keyword-tracking",
+      description: "Create a new keyword tracking entry",
+      required_fields: "client_id, keyword, target_url",
+      optional_fields: "search_engine, country, location, check_frequency, notes",
+      auth_required: true,
+    },
+    {
+      method: "GET",
+      path: "/api/keyword-tracking",
+      description: "Get all keyword tracking entries for the authenticated user",
+      optional_parameters: "client_id, is_active, search, limit, offset, sort_by, sort_dir",
+      auth_required: true,
+    },
+    {
+      method: "GET",
+      path: "/api/keyword-tracking/:id",
+      description: "Get a specific keyword tracking entry by ID",
+      auth_required: true,
+    },
+    {
+      method: "PUT",
+      path: "/api/keyword-tracking/:id",
+      description: "Update a keyword tracking entry",
+      optional_fields: "keyword, target_url, search_engine, country, location, check_frequency, is_active, notes",
+      auth_required: true,
+    },
+    {
+      method: "DELETE",
+      path: "/api/keyword-tracking/:id",
+      description: "Delete a keyword tracking entry",
+      auth_required: true,
+    },
+    {
+      method: "POST",
+      path: "/api/keyword-tracking/:id/check-ranking",
+      description: "Check ranking for a specific keyword tracking entry",
+      auth_required: true,
+    },
+    {
+      method: "GET",
+      path: "/api/keyword-tracking/:id/rank-history",
+      description: "Get ranking history for a keyword tracking entry",
+      optional_parameters: "limit",
+      auth_required: true,
+    },
+    {
+      method: "POST",
+      path: "/api/keyword-tracking/bulk-check",
+      description: "Bulk check rankings for multiple keyword tracking entries",
+      required_body: "ids (array of keyword tracking IDs)",
       auth_required: true,
     },
   ];
