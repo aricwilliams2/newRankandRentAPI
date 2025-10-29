@@ -82,17 +82,17 @@ app.get('/videos/:filename', (req, res) => {
 });
 
 // Standard parsers for JSON/urlencoded requests (these properly ignore multipart data)
-// Webhook logging harness - track all Twilio webhook calls
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+
+// Webhook logging harness - track all Twilio webhook calls (after body parsing)
 app.use((req, res, next) => {
-  const sid = req.body.CallSid || req.query.CallSid || '';
+  const sid = req.body?.CallSid || req.query?.CallSid || '';
   const tag = `${Date.now().toString(36)}:${sid.slice(-6)}`;
   console.log(`[IN] ${tag} ${req.method} ${req.originalUrl}`);
   res.on('finish', () => console.log(`[OUT] ${tag} ${res.statusCode}`));
   next();
 });
-
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Routes that don't need file uploads
 app.use("/stripe", stripeRoutes);
