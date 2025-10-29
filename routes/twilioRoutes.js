@@ -830,8 +830,20 @@ router.get('/whisper', async (req, res) => {
       twiml.say({ voice: 'alice', language: 'en-US' }, safeText);
     } else {
       // Default whisper - always works
-      const defaultText = `Incoming call on ${label}. Caller ${callerReadable}.`;
-      console.log(`🗣️ Speaking default whisper: "${defaultText}"`);
+      let defaultText;
+      
+      // Check for specific phone numbers with custom messages
+      if (pn === '+18645287304' || pn === '8645287304') {
+        defaultText = 'This is a junk removal lead from Greenville NC, this is a junk removal lead from Greenville NC.';
+        console.log(`🗣️ Speaking Greenville NC whisper: "${defaultText}"`);
+      } else if (pn === '+17122145838' || pn === '7122145838') {
+        defaultText = 'This is a junk removal lead from Jacksonville Florida, this is a lead from Jacksonville FL.';
+        console.log(`🗣️ Speaking Jacksonville FL whisper: "${defaultText}"`);
+      } else {
+        defaultText = `Incoming call on ${label}. Caller ${callerReadable}.`;
+        console.log(`🗣️ Speaking default whisper: "${defaultText}"`);
+      }
+      
       twiml.say({ voice: 'alice', language: 'en-US' }, defaultText);
     }
     
