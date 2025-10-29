@@ -10,6 +10,8 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs').promises;
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
 
 // S3 client for audio uploads
 const s3Client = new S3Client({
@@ -21,6 +23,42 @@ const s3Client = new S3Client({
 });
 
 const BUCKET_NAME = process.env.AWS_S3_BUCKET || 'rankandrent-videos';
+
+// Configure ffmpeg path
+ffmpeg.setFfmpegPath(ffmpegPath);
+
+// Helper: transcode audio to phone-grade WAV (8kHz mono µ-law)
+const transcodeToPhoneWav = (inputBuffer) =>
+  new Promise((resolve, reject) => {
+    const chunks = [];
+    const stream = require('stream');
+    const inStream = new stream.PassThrough();
+    inStream.end(inputBuffer);
+
+    console.log(`🔄 Transcoding audio: ${inputBuffer.length} bytes input`);
+
+    // Transcode to phone-grade WAV:
+    // -ar 8000  -> 8kHz sample rate
+    // -ac 1     -> mono channel
+    // -codec:a pcm_mulaw -> G.711 μ-law codec (PSTN standard)
+    ffmpeg(inStream)
+      .inputFormat('webm') // Explicitly specify WebM input format
+      .format('wav')
+      .audioCodec('pcm_mulaw')
+      .audioChannels(1)
+      .audioFrequency(8000)
+      .on('error', (err) => {
+        console.error('FFmpeg transcode error:', err.message);
+        reject(err);
+      })
+      .on('end', () => {
+        const result = Buffer.concat(chunks);
+        console.log(`✅ Audio transcoded to phone-grade WAV: ${result.length} bytes`);
+        resolve(result);
+      })
+      .pipe()
+      .on('data', (chunk) => chunks.push(chunk));
+  });
 
 // Multer configuration for audio uploads
 const audioUpload = multer({
@@ -1575,7 +1613,7 @@ router.put('/my-numbers/:id/whisper', auth, async (req, res) => {
   }
 });
 
-// Upload whisper audio file to database
+// Upload whisper audio file to database (with phone-grade transcoding)
 router.post('/my-numbers/:id/whisper/upload', auth, audioUpload.single('audio'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -1593,25 +1631,26 @@ router.post('/my-numbers/:id/whisper/upload', auth, audioUpload.single('audio'),
       return res.status(400).json({ error: 'No audio file provided' });
     }
 
-    // Store audio file in database as BLOB
+    console.log(`🎵 Uploading whisper audio: ${req.file.originalname}, ${req.file.size} bytes, ${req.file.mimetype}`);
+
+    // 1) Transcode to phone-grade WAV (8kHz mono µ-law)
+    console.log('🔄 Transcoding audio to phone-grade WAV...');
+    const wavBuffer = await transcodeToPhoneWav(req.file.buffer);
+    
+    console.log(`✅ Transcode complete: ${wavBuffer.length} bytes (was ${req.file.size} bytes)`);
+
+    // 2) Store transcoded WAV in database
     const db = require('../config/database');
-    const audioBuffer = req.file.buffer;
-    const mimeType = req.file.mimetype || 'audio/webm';
-    const fileSize = audioBuffer.length;
-
-    console.log(`💾 Storing whisper audio in database: ${fileSize} bytes, type: ${mimeType}`);
-
-    // Insert into phone_number_whispers table
     const result = await db.query(
       `INSERT INTO phone_number_whispers 
        (phone_number_id, mime, bytes, size_bytes, is_active) 
        VALUES (?, ?, ?, ?, 1)`,
-      [id, mimeType, audioBuffer, fileSize]
+      [id, 'audio/wav', wavBuffer, wavBuffer.length]
     );
 
     const whisperId = result.insertId;
 
-    // Update user_phone_numbers to reference this whisper and enable whisper
+    // 3) Update user_phone_numbers to reference this whisper and enable whisper
     const updateData = {
       whisper_enabled: true,
       whisper_type: 'play',
@@ -1625,13 +1664,19 @@ router.post('/my-numbers/:id/whisper/upload', auth, audioUpload.single('audio'),
       console.log(`✅ Whisper audio stored in database with ID: ${whisperId}`);
       res.json({
         success: true,
-        message: 'Whisper audio uploaded successfully',
+        message: 'Whisper audio uploaded and transcoded successfully',
         whisper_id: whisperId,
         media_url: updateData.whisper_media_url,
         whisper: {
           enabled: true,
           type: 'play',
           media_url: updateData.whisper_media_url
+        },
+        transcoding: {
+          original_size: req.file.size,
+          transcoded_size: wavBuffer.length,
+          format: '8kHz mono WAV (µ-law)',
+          phone_grade: true
         }
       });
     } else {
@@ -1639,9 +1684,9 @@ router.post('/my-numbers/:id/whisper/upload', auth, audioUpload.single('audio'),
     }
 
   } catch (err) {
-    console.error('Error uploading whisper audio:', err);
+    console.error('Error uploading/transcoding whisper audio:', err);
     res.status(500).json({ 
-      error: 'Failed to upload whisper audio',
+      error: 'Failed to upload/transcode whisper audio',
       details: err.message 
     });
   }
@@ -1671,23 +1716,14 @@ router.get('/whisper-audio/:id', async (req, res) => {
     const whisper = rows[0];
     console.log(`✅ Serving whisper audio - Size: ${whisper.size_bytes} bytes, MIME: ${whisper.mime}`);
     
-    // Normalize MIME type for Twilio compatibility
-    let contentType = whisper.mime || 'audio/webm';
-    // Twilio prefers audio/mpeg for MP3, but accepts other formats
-    if (contentType.includes('mp3') || contentType.includes('mpeg')) {
-      contentType = 'audio/mpeg';
-    } else if (contentType.includes('wav')) {
-      contentType = 'audio/x-wav';
-    }
-    
-    // Set appropriate headers for audio streaming (critical for Twilio)
-    res.setHeader('Content-Type', contentType);
+    // Set appropriate headers for phone-grade WAV (critical for Twilio)
+    res.setHeader('Content-Type', 'audio/wav');
     res.setHeader('Content-Length', whisper.size_bytes);
-    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); // Cache for 1 year
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Access-Control-Allow-Origin', '*'); // CORS for Twilio
     
-    // Twilio needs HTTPS and fast response - send the audio bytes directly
+    // Twilio needs HTTPS and fast response - send the phone-grade WAV bytes directly
     res.end(whisper.bytes);
 
   } catch (err) {
