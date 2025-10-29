@@ -620,17 +620,16 @@ router.post('/twiml', async (req, res) => {
               }
               
               // Forward the call based on forwarding type
-              // Extract original caller information for whisper and caller ID passthrough
+              // Extract original caller information for whisper and caller ID
               const originalCaller = (req.body.Caller || req.body.From || req.query.Caller || req.query.From || caller || from || '').trim();
               const calledTwilioNumber = (req.body.Called || req.body.To || phoneNumberToCheck || '').trim();
               
-              // Note: We don't set callerId here, so Twilio automatically passes through
-              // the original caller's number to the forwarded destination
+              // Show original caller number - you want to see who's calling regardless of spam labeling
               if (forwarding.forwarding_type === 'always') {
                 // Forward immediately with whisper
                 const dial = twiml.dial({
-                  // Omit callerId so the callee sees the *original* caller number that Twilio passes through
-                  answerOnBridge: true,         // caller hears ringing during whisper
+                  callerId: originalCaller,      // Show original caller number
+                  answerOnBridge: true,            // caller hears ringing during whisper
                   record: 'record-from-answer-dual',
                   recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
                   recordingStatusCallbackEvent: ['completed'],
@@ -640,20 +639,21 @@ router.post('/twiml', async (req, res) => {
                   timeout: forwarding.ring_timeout || 20
                 });
                 console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number} with whisper`);
-                console.log(`📞 Original caller: ${originalCaller}, Called number: ${calledTwilioNumber}`);
+                console.log(`📞 Original caller: ${originalCaller}, Called number: ${calledTwilioNumber}, CallerId: ${originalCaller}`);
                 // Run a private whisper just for the callee leg, then connect
                 dial.number(
                   {
                     url: `${process.env.SERVER_URL}/api/twilio/whisper` +
                          `?pn=${encodeURIComponent(calledTwilioNumber)}` +      // which Twilio line was called
-                         `&from=${encodeURIComponent(originalCaller)}`          // who is calling
+                         `&from=${encodeURIComponent(originalCaller)}`          // who is calling (for whisper announcement)
                   },
                   forwarding.forward_to_number
                 );
               } else {
                 // For other forwarding types, forward immediately with whisper (placeholder for future logic)
                 const dial = twiml.dial({
-                  answerOnBridge: true,         // caller hears ringing during whisper
+                  callerId: originalCaller,      // Show original caller number
+                  answerOnBridge: true,            // caller hears ringing during whisper
                   record: 'record-from-answer-dual',
                   recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
                   recordingStatusCallbackEvent: ['completed'],
@@ -663,13 +663,13 @@ router.post('/twiml', async (req, res) => {
                   timeout: forwarding.ring_timeout || 20
                 });
                 console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number} with whisper`);
-                console.log(`📞 Original caller: ${originalCaller}, Called number: ${calledTwilioNumber}`);
+                console.log(`📞 Original caller: ${originalCaller}, Called number: ${calledTwilioNumber}, CallerId: ${originalCaller}`);
                 // Run a private whisper just for the callee leg, then connect
                 dial.number(
                   {
                     url: `${process.env.SERVER_URL}/api/twilio/whisper` +
                          `?pn=${encodeURIComponent(calledTwilioNumber)}` +      // which Twilio line was called
-                         `&from=${encodeURIComponent(originalCaller)}`          // who is calling
+                         `&from=${encodeURIComponent(originalCaller)}`          // who is calling (for whisper announcement)
                   },
                   forwarding.forward_to_number
                 );
@@ -734,11 +734,12 @@ router.post('/twiml', async (req, res) => {
 // Reads per-number whisper configuration and supports both TTS (Say) and pre-recorded audio (Play)
 // IMPORTANT: Must be GET because Twilio's <Number url="..."> uses GET by default
 router.get('/whisper', async (req, res) => {
+  // Always initialize TwiML - must return valid XML even on errors
+  const VoiceResponse = require('twilio').twiml.VoiceResponse;
+  const twiml = new VoiceResponse();
+  
   try {
     console.log('🔊 Whisper endpoint HIT - Query params:', req.query);
-    
-    const VoiceResponse = require('twilio').twiml.VoiceResponse;
-    const twiml = new VoiceResponse();
 
     const pn = (req.query.pn || '').trim();    // Twilio number that was called
     const from = (req.query.from || '').trim();  // original caller (E.164)
@@ -759,83 +760,90 @@ router.get('/whisper', async (req, res) => {
     const enabled = !!num?.whisper_enabled;
 
     if (!enabled || !num) {
-      // If disabled or not found, return empty TwiML so Twilio bridges immediately
+      // If disabled or not found, return minimal TwiML so Twilio bridges immediately
       console.log(`⚠️ Whisper disabled or number not found for: ${pn}`);
-      return res.type('text/xml').send(twiml.toString());
+      twiml.pause({ length: 1 }); // Tiny pause to ensure valid TwiML
+      const twimlResponse = twiml.toString();
+      res.type('text/xml');
+      return res.send(twimlResponse);
     }
 
-    // Get whisper configuration
+    // Get whisper configuration with safe defaults
     const type = (num.whisper_type || 'say').toLowerCase();
-    const label = num.friendly_name || pn;
+    const label = num.friendly_name || pn || 'your line';
     const caller = from || '';
-    const voice = num.whisper_voice || 'alice';       // Use 'alice' as safe default
     const lang = num.whisper_language || 'en-US';
     const media = num.whisper_media_url;
 
-    // Format caller number for speech if provided
+    // Format caller number for speech if provided (super short for reliability)
     let callerReadable = '';
     if (caller) {
       // Remove + and format as spaced digits for better speech clarity
       const cleaned = caller.replace(/^\+/, '').replace(/\D/g, '');
-      callerReadable = ` Caller ${cleaned.split('').join(' ')}.`;
+      if (cleaned.length <= 11) {
+        callerReadable = ` from ${cleaned.split('').join(' ')}.`;
+      } else {
+        callerReadable = '.'; // Skip long numbers to keep message short
+      }
     }
 
-    // Determine whisper text/audio
+    // Determine whisper text/audio - keep it short (2-3 seconds max)
     let whisperText = num.whisper_text;
-    if (!whisperText && type === 'say') {
-      // Default TTS text if not configured
-      whisperText = `Incoming call on ${label}${callerReadable}`;
-    } else if (whisperText && type === 'say') {
-      // Support template variables: {label} and {caller}
-      whisperText = whisperText
-        .replace(/\{label\}/g, label)
-        .replace(/\{caller\}/g, callerReadable || '');
-    }
-
-    // Keep it snappy—callers hear ringback while this plays
+    
     try {
       if (type === 'play' && media) {
-        // Pre-recorded audio path - wrap in TwiML <Play>
+        // Pre-recorded audio path
         console.log(`🎵 Playing whisper audio from: ${media}`);
         twiml.play(media);
-      } else if (type === 'say' && whisperText) {
-        // Text-to-Speech path - use safe 'alice' voice
-        console.log(`🗣️ Speaking whisper: "${whisperText}" (voice: ${voice}, lang: ${lang})`);
-        twiml.say({ voice: 'alice', language: lang }, whisperText); // Force 'alice' for reliability
+      } else if (type === 'say') {
+        // Text-to-Speech path - always use 'alice' for reliability
+        if (whisperText) {
+          // Support template variables: {label} and {caller}
+          whisperText = whisperText
+            .replace(/\{label\}/g, label)
+            .replace(/\{caller\}/g, callerReadable || '');
+        } else {
+          // Default short message
+          whisperText = `Incoming call on ${label}${callerReadable}`;
+        }
+        
+        // Ensure message is not too long (trim if needed)
+        if (whisperText.length > 100) {
+          whisperText = whisperText.substring(0, 97) + '...';
+        }
+        
+        console.log(`🗣️ Speaking whisper: "${whisperText}" (voice: alice, lang: ${lang})`);
+        twiml.say({ voice: 'alice', language: lang }, whisperText);
       } else {
-        // Fallback: basic message if nothing configured
-        console.log(`⚠️ Whisper configured but missing text/media, using default`);
-        twiml.say({ voice: 'alice', language: 'en-US' }, `Incoming call on ${label}${callerReadable}`);
+        // Fallback: minimal message if type invalid
+        console.log(`⚠️ Invalid whisper type: ${type}, using default`);
+        twiml.say({ voice: 'alice', language: 'en-US' }, `Incoming call on your line.`);
       }
       
-      // A tiny beat feels nice before connecting
+      // Tiny pause before connecting (always include for stability)
       twiml.pause({ length: 1 });
       
       console.log(`✅ Whisper TwiML generated successfully`);
     } catch (whisperError) {
-      console.error('❌ Error playing whisper:', whisperError);
-      // If anything goes sideways, fail open—bridge immediately with just a pause
+      console.error('❌ Error generating whisper content:', whisperError);
+      // Fail-safe: minimal whisper so call still connects
+      twiml.say({ voice: 'alice', language: 'en-US' }, 'Incoming call.');
       twiml.pause({ length: 1 });
     }
 
-    // CRITICAL: Return TwiML with correct Content-Type header
-    const twimlResponse = twiml.toString();
-    console.log(`📋 Whisper TwiML response: ${twimlResponse}`);
-    
-    res.type('text/xml');
-    res.send(twimlResponse);
-
   } catch (error) {
     console.error('❌ Error in whisper endpoint:', error);
-    
-    // Return minimal TwiML on error - just a pause so call still connects
-    const VoiceResponse = require('twilio').twiml.VoiceResponse;
-    const twiml = new VoiceResponse();
+    // Fail-safe: always return valid TwiML even on complete failure
+    twiml.say({ voice: 'alice', language: 'en-US' }, 'Incoming call.');
     twiml.pause({ length: 1 });
-    
-    res.type('text/xml');
-    res.send(twiml.toString());
   }
+
+  // CRITICAL: Always return valid TwiML with correct Content-Type header
+  const twimlResponse = twiml.toString();
+  console.log(`📋 Whisper TwiML response (${twimlResponse.length} chars): ${twimlResponse.substring(0, 200)}...`);
+  
+  res.type('text/xml');
+  res.send(twimlResponse);
 });
 
 // Call status callback
@@ -1693,13 +1701,23 @@ router.get('/whisper-audio/:id', async (req, res) => {
     const whisper = rows[0];
     console.log(`✅ Serving whisper audio - Size: ${whisper.size_bytes} bytes, MIME: ${whisper.mime}`);
     
-    // Set appropriate headers for audio streaming
-    res.setHeader('Content-Type', whisper.mime || 'audio/webm');
+    // Normalize MIME type for Twilio compatibility
+    let contentType = whisper.mime || 'audio/webm';
+    // Twilio prefers audio/mpeg for MP3, but accepts other formats
+    if (contentType.includes('mp3') || contentType.includes('mpeg')) {
+      contentType = 'audio/mpeg';
+    } else if (contentType.includes('wav')) {
+      contentType = 'audio/x-wav';
+    }
+    
+    // Set appropriate headers for audio streaming (critical for Twilio)
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Length', whisper.size_bytes);
     res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
     res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Access-Control-Allow-Origin', '*'); // CORS for Twilio
     
-    // Twilio needs HTTPS and fast response - send the audio bytes
+    // Twilio needs HTTPS and fast response - send the audio bytes directly
     res.end(whisper.bytes);
 
   } catch (err) {
