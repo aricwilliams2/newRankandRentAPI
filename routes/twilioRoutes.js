@@ -636,7 +636,7 @@ router.post('/twiml', async (req, res) => {
                   statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
                   statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
                   statusCallbackMethod: 'POST',
-                  timeout: forwarding.ring_timeout || 20
+                  timeout: Math.max(15, forwarding.ring_timeout || 20)   // guarantee enough time for whisper
                 });
                 console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number} with whisper`);
                 console.log(`📞 Original caller: ${originalCaller}, Called number: ${calledTwilioNumber}, CallerId: ${originalCaller}`);
@@ -645,7 +645,8 @@ router.post('/twiml', async (req, res) => {
                   {
                     url: `${process.env.SERVER_URL}/api/twilio/whisper` +
                          `?pn=${encodeURIComponent(calledTwilioNumber)}` +      // which Twilio line was called
-                         `&from=${encodeURIComponent(originalCaller)}`          // who is calling (for whisper announcement)
+                         `&from=${encodeURIComponent(originalCaller)}`,         // who is calling (for whisper announcement)
+                    method: 'GET'  // match whisper route
                   },
                   forwarding.forward_to_number
                 );
@@ -660,7 +661,7 @@ router.post('/twiml', async (req, res) => {
                   statusCallback: `${process.env.SERVER_URL}/api/twilio/status-callback`,
                   statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
                   statusCallbackMethod: 'POST',
-                  timeout: forwarding.ring_timeout || 20
+                  timeout: Math.max(15, forwarding.ring_timeout || 20)   // guarantee enough time for whisper
                 });
                 console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number} with whisper`);
                 console.log(`📞 Original caller: ${originalCaller}, Called number: ${calledTwilioNumber}, CallerId: ${originalCaller}`);
@@ -669,7 +670,8 @@ router.post('/twiml', async (req, res) => {
                   {
                     url: `${process.env.SERVER_URL}/api/twilio/whisper` +
                          `?pn=${encodeURIComponent(calledTwilioNumber)}` +      // which Twilio line was called
-                         `&from=${encodeURIComponent(originalCaller)}`          // who is calling (for whisper announcement)
+                         `&from=${encodeURIComponent(originalCaller)}`,         // who is calling (for whisper announcement)
+                    method: 'GET'  // match whisper route
                   },
                   forwarding.forward_to_number
                 );
@@ -731,111 +733,79 @@ router.post('/twiml', async (req, res) => {
 });
 
 // Whisper endpoint - plays private message to callee before connecting the call
-// Reads per-number whisper configuration and supports both TTS (Say) and pre-recorded audio (Play)
+// BATTLE-HARDENED: Must be unbreakable, always return valid TwiML
 // IMPORTANT: Must be GET because Twilio's <Number url="..."> uses GET by default
 router.get('/whisper', async (req, res) => {
-  // Always initialize TwiML - must return valid XML even on errors
-  const VoiceResponse = require('twilio').twiml.VoiceResponse;
+  const { VoiceResponse } = require('twilio').twiml;
   const twiml = new VoiceResponse();
   
   try {
     console.log('🔊 Whisper endpoint HIT - Query params:', req.query);
 
-    const pn = (req.query.pn || '').trim();    // Twilio number that was called
-    const from = (req.query.from || '').trim();  // original caller (E.164)
+    // Safe parameter extraction - never reference undefined vars
+    const pn = (req.query.pn || '').trim();       // Twilio DID that was called
+    const from = (req.query.from || '').trim();   // Original caller (E.164)
+    
+    // Safe caller formatting - handle any edge cases
+    const digits = from.replace(/^\+/, '').replace(/\D/g, '');
+    const callerReadable = digits ? digits.split('').join(' ') : 'unknown caller';
+    const label = pn || 'your line'; // Keep it fast, no DB lookup in whisper
 
-    console.log(`🔊 Whisper request: pn=${pn}, from=${from}`);
+    console.log(`🔊 Whisper request: pn=${pn}, from=${from}, callerReadable=${callerReadable}`);
 
-    // Look up per-number whisper configuration
-    let num = null;
-    try {
-      if (pn) {
-        num = await UserPhoneNumber.findByPhoneNumber(pn);
-      }
-    } catch (lookupError) {
-      console.warn('Could not lookup phone number:', lookupError.message);
-    }
-
-    // Check if whisper is enabled for this number
-    const enabled = !!num?.whisper_enabled;
-
-    if (!enabled || !num) {
-      // If disabled or not found, return minimal TwiML so Twilio bridges immediately
-      console.log(`⚠️ Whisper disabled or number not found for: ${pn}`);
-      twiml.pause({ length: 1 }); // Tiny pause to ensure valid TwiML
-      const twimlResponse = twiml.toString();
-      res.type('text/xml');
-      return res.send(twimlResponse);
-    }
-
-    // Get whisper configuration with safe defaults
-    const type = (num.whisper_type || 'say').toLowerCase();
-    const label = num.friendly_name || pn || 'your line';
-    const caller = from || '';
-    const lang = num.whisper_language || 'en-US';
-    const media = num.whisper_media_url;
-
-    // Format caller number for speech if provided (super short for reliability)
-    let callerReadable = '';
-    if (caller) {
-      // Remove + and format as spaced digits for better speech clarity
-      const cleaned = caller.replace(/^\+/, '').replace(/\D/g, '');
-      if (cleaned.length <= 11) {
-        callerReadable = ` from ${cleaned.split('').join(' ')}.`;
-      } else {
-        callerReadable = '.'; // Skip long numbers to keep message short
-      }
-    }
-
-    // Determine whisper text/audio - keep it short (2-3 seconds max)
-    let whisperText = num.whisper_text;
+    // Look up whisper configuration (optional - fail gracefully if not found)
+    let whisperEnabled = false;
+    let whisperText = null;
+    let whisperType = 'say';
+    let whisperMedia = null;
     
     try {
-      if (type === 'play' && media) {
-        // Pre-recorded audio path
-        console.log(`🎵 Playing whisper audio from: ${media}`);
-        twiml.play(media);
-      } else if (type === 'say') {
-        // Text-to-Speech path - always use 'alice' for reliability
-        if (whisperText) {
-          // Support template variables: {label} and {caller}
-          whisperText = whisperText
-            .replace(/\{label\}/g, label)
-            .replace(/\{caller\}/g, callerReadable || '');
-        } else {
-          // Default short message
-          whisperText = `Incoming call on ${label}${callerReadable}`;
+      if (pn) {
+        const num = await UserPhoneNumber.findByPhoneNumber(pn);
+        if (num) {
+          whisperEnabled = !!num.whisper_enabled;
+          whisperText = num.whisper_text;
+          whisperType = (num.whisper_type || 'say').toLowerCase();
+          whisperMedia = num.whisper_media_url;
         }
-        
-        // Ensure message is not too long (trim if needed)
-        if (whisperText.length > 100) {
-          whisperText = whisperText.substring(0, 97) + '...';
-        }
-        
-        console.log(`🗣️ Speaking whisper: "${whisperText}" (voice: alice, lang: ${lang})`);
-        twiml.say({ voice: 'alice', language: lang }, whisperText);
-      } else {
-        // Fallback: minimal message if type invalid
-        console.log(`⚠️ Invalid whisper type: ${type}, using default`);
-        twiml.say({ voice: 'alice', language: 'en-US' }, `Incoming call on your line.`);
       }
-      
-      // Tiny pause before connecting (always include for stability)
-      twiml.pause({ length: 1 });
-      
-      console.log(`✅ Whisper TwiML generated successfully`);
-    } catch (whisperError) {
-      console.error('❌ Error generating whisper content:', whisperError);
-      // Fail-safe: minimal whisper so call still connects
-      twiml.say({ voice: 'alice', language: 'en-US' }, 'Incoming call.');
-      twiml.pause({ length: 1 });
+    } catch (lookupError) {
+      console.warn('Could not lookup phone number for whisper config:', lookupError.message);
+      // Continue with defaults - don't fail the whisper
     }
+
+    // Generate whisper content - keep it short (≤ 2-3 seconds max)
+    if (whisperEnabled && whisperType === 'play' && whisperMedia) {
+      // Pre-recorded audio path
+      console.log(`🎵 Playing whisper audio from: ${whisperMedia}`);
+      twiml.play(whisperMedia);
+    } else if (whisperEnabled && whisperText) {
+      // Custom TTS text with template variables
+      const finalText = whisperText
+        .replace(/\{label\}/g, label)
+        .replace(/\{caller\}/g, callerReadable);
+      
+      // Ensure message is not too long (trim if needed)
+      const safeText = finalText.length > 100 ? finalText.substring(0, 97) + '...' : finalText;
+      
+      console.log(`🗣️ Speaking custom whisper: "${safeText}"`);
+      twiml.say({ voice: 'alice', language: 'en-US' }, safeText);
+    } else {
+      // Default whisper - always works
+      const defaultText = `Incoming call on ${label}. Caller ${callerReadable}.`;
+      console.log(`🗣️ Speaking default whisper: "${defaultText}"`);
+      twiml.say({ voice: 'alice', language: 'en-US' }, defaultText);
+    }
+    
+    // Tiny pause before connecting (always include for stability)
+    twiml.pause({ length: 1 });
+    
+    console.log(`✅ Whisper TwiML generated successfully`);
 
   } catch (error) {
     console.error('❌ Error in whisper endpoint:', error);
-    // Fail-safe: always return valid TwiML even on complete failure
-    twiml.say({ voice: 'alice', language: 'en-US' }, 'Incoming call.');
-    twiml.pause({ length: 1 });
+    // Fail-open: return empty <Response/> to allow bridge
+    // Don't add any content that could fail
   }
 
   // CRITICAL: Always return valid TwiML with correct Content-Type header
