@@ -5,6 +5,51 @@ const { authenticate: auth } = require('../middleware/auth');
 const TwilioCallLog = require('../models/TwilioCallLog');
 const UserPhoneNumber = require('../models/UserPhoneNumber');
 const { BillingService, MIN_REQUIRED_BALANCE, PHONE_NUMBER_MONTHLY_PRICE, CALL_RATE_PER_MINUTE } = require('../services/BillingService');
+const multer = require('multer');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+const fs = require('fs').promises;
+
+// S3 client for audio uploads
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION || 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  }
+});
+
+const BUCKET_NAME = process.env.AWS_S3_BUCKET || 'rankandrent-videos';
+
+// Multer configuration for audio uploads
+const audioUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = [
+      'audio/mpeg',
+      'audio/mp3',
+      'audio/wav',
+      'audio/x-wav',
+      'audio/ogg',
+      'audio/webm',
+      'audio/mp4',
+      'audio/aac',
+      'audio/x-m4a'
+    ];
+    const allowedExtensions = ['.mp3', '.wav', '.ogg', '.webm', '.m4a', '.aac'];
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    
+    if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid file type: ${file.mimetype}. Only audio files (MP3, WAV, OGG, etc.) are allowed.`), false);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit for whisper audio files
+  }
+});
 
 // Aggregated usage stats for the authenticated user
 router.get('/usage-stats', auth, async (req, res) => {
@@ -575,10 +620,17 @@ router.post('/twiml', async (req, res) => {
               }
               
               // Forward the call based on forwarding type
+              // Extract original caller information for whisper and caller ID passthrough
+              const originalCaller = (req.body.Caller || req.body.From || req.query.Caller || req.query.From || caller || from || '').trim();
+              const calledTwilioNumber = (req.body.Called || req.body.To || phoneNumberToCheck || '').trim();
+              
+              // Note: We don't set callerId here, so Twilio automatically passes through
+              // the original caller's number to the forwarded destination
               if (forwarding.forwarding_type === 'always') {
-                // Forward immediately
+                // Forward immediately with whisper
                 const dial = twiml.dial({
-                  callerId: phoneNumberToCheck,
+                  // Omit callerId so the callee sees the *original* caller number that Twilio passes through
+                  answerOnBridge: true,         // caller hears ringing during whisper
                   record: 'record-from-answer-dual',
                   recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
                   recordingStatusCallbackEvent: ['completed'],
@@ -587,12 +639,21 @@ router.post('/twiml', async (req, res) => {
                   statusCallbackMethod: 'POST',
                   timeout: forwarding.ring_timeout || 20
                 });
-                console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number}`);
-                dial.number(forwarding.forward_to_number);
+                console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number} with whisper`);
+                console.log(`📞 Original caller: ${originalCaller}, Called number: ${calledTwilioNumber}`);
+                // Run a private whisper just for the callee leg, then connect
+                dial.number(
+                  {
+                    url: `${process.env.SERVER_URL}/api/twilio/whisper` +
+                         `?pn=${encodeURIComponent(calledTwilioNumber)}` +      // which Twilio line was called
+                         `&from=${encodeURIComponent(originalCaller)}`          // who is calling
+                  },
+                  forwarding.forward_to_number
+                );
               } else {
-                // For other forwarding types, forward immediately (placeholder for future logic)
+                // For other forwarding types, forward immediately with whisper (placeholder for future logic)
                 const dial = twiml.dial({
-                  callerId: phoneNumberToCheck,
+                  answerOnBridge: true,         // caller hears ringing during whisper
                   record: 'record-from-answer-dual',
                   recordingStatusCallback: `${process.env.SERVER_URL}/api/twilio/recording-callback`,
                   recordingStatusCallbackEvent: ['completed'],
@@ -601,8 +662,17 @@ router.post('/twiml', async (req, res) => {
                   statusCallbackMethod: 'POST',
                   timeout: forwarding.ring_timeout || 20
                 });
-                console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number}`);
-                dial.number(forwarding.forward_to_number);
+                console.log(`📞 Dialing forward-to number: ${forwarding.forward_to_number} with whisper`);
+                console.log(`📞 Original caller: ${originalCaller}, Called number: ${calledTwilioNumber}`);
+                // Run a private whisper just for the callee leg, then connect
+                dial.number(
+                  {
+                    url: `${process.env.SERVER_URL}/api/twilio/whisper` +
+                         `?pn=${encodeURIComponent(calledTwilioNumber)}` +      // which Twilio line was called
+                         `&from=${encodeURIComponent(originalCaller)}`          // who is calling
+                  },
+                  forwarding.forward_to_number
+                );
               }
             } else {
               // No forwarding active, play default message
@@ -654,6 +724,114 @@ router.post('/twiml', async (req, res) => {
     const twiml = new VoiceResponse();
     twiml.say('I\'m sorry, there was an error processing your call. Please try again.');
     twiml.hangup();
+    
+    res.type('text/xml');
+    res.send(twiml.toString());
+  }
+});
+
+// Whisper endpoint - plays private message to callee before connecting the call
+// Reads per-number whisper configuration and supports both TTS (Say) and pre-recorded audio (Play)
+// IMPORTANT: Must be GET because Twilio's <Number url="..."> uses GET by default
+router.get('/whisper', async (req, res) => {
+  try {
+    console.log('🔊 Whisper endpoint HIT - Query params:', req.query);
+    
+    const VoiceResponse = require('twilio').twiml.VoiceResponse;
+    const twiml = new VoiceResponse();
+
+    const pn = (req.query.pn || '').trim();    // Twilio number that was called
+    const from = (req.query.from || '').trim();  // original caller (E.164)
+
+    console.log(`🔊 Whisper request: pn=${pn}, from=${from}`);
+
+    // Look up per-number whisper configuration
+    let num = null;
+    try {
+      if (pn) {
+        num = await UserPhoneNumber.findByPhoneNumber(pn);
+      }
+    } catch (lookupError) {
+      console.warn('Could not lookup phone number:', lookupError.message);
+    }
+
+    // Check if whisper is enabled for this number
+    const enabled = !!num?.whisper_enabled;
+
+    if (!enabled || !num) {
+      // If disabled or not found, return empty TwiML so Twilio bridges immediately
+      console.log(`⚠️ Whisper disabled or number not found for: ${pn}`);
+      return res.type('text/xml').send(twiml.toString());
+    }
+
+    // Get whisper configuration
+    const type = (num.whisper_type || 'say').toLowerCase();
+    const label = num.friendly_name || pn;
+    const caller = from || '';
+    const voice = num.whisper_voice || 'alice';       // Use 'alice' as safe default
+    const lang = num.whisper_language || 'en-US';
+    const media = num.whisper_media_url;
+
+    // Format caller number for speech if provided
+    let callerReadable = '';
+    if (caller) {
+      // Remove + and format as spaced digits for better speech clarity
+      const cleaned = caller.replace(/^\+/, '').replace(/\D/g, '');
+      callerReadable = ` Caller ${cleaned.split('').join(' ')}.`;
+    }
+
+    // Determine whisper text/audio
+    let whisperText = num.whisper_text;
+    if (!whisperText && type === 'say') {
+      // Default TTS text if not configured
+      whisperText = `Incoming call on ${label}${callerReadable}`;
+    } else if (whisperText && type === 'say') {
+      // Support template variables: {label} and {caller}
+      whisperText = whisperText
+        .replace(/\{label\}/g, label)
+        .replace(/\{caller\}/g, callerReadable || '');
+    }
+
+    // Keep it snappy—callers hear ringback while this plays
+    try {
+      if (type === 'play' && media) {
+        // Pre-recorded audio path - wrap in TwiML <Play>
+        console.log(`🎵 Playing whisper audio from: ${media}`);
+        twiml.play(media);
+      } else if (type === 'say' && whisperText) {
+        // Text-to-Speech path - use safe 'alice' voice
+        console.log(`🗣️ Speaking whisper: "${whisperText}" (voice: ${voice}, lang: ${lang})`);
+        twiml.say({ voice: 'alice', language: lang }, whisperText); // Force 'alice' for reliability
+      } else {
+        // Fallback: basic message if nothing configured
+        console.log(`⚠️ Whisper configured but missing text/media, using default`);
+        twiml.say({ voice: 'alice', language: 'en-US' }, `Incoming call on ${label}${callerReadable}`);
+      }
+      
+      // A tiny beat feels nice before connecting
+      twiml.pause({ length: 1 });
+      
+      console.log(`✅ Whisper TwiML generated successfully`);
+    } catch (whisperError) {
+      console.error('❌ Error playing whisper:', whisperError);
+      // If anything goes sideways, fail open—bridge immediately with just a pause
+      twiml.pause({ length: 1 });
+    }
+
+    // CRITICAL: Return TwiML with correct Content-Type header
+    const twimlResponse = twiml.toString();
+    console.log(`📋 Whisper TwiML response: ${twimlResponse}`);
+    
+    res.type('text/xml');
+    res.send(twimlResponse);
+
+  } catch (error) {
+    console.error('❌ Error in whisper endpoint:', error);
+    
+    // Return minimal TwiML on error - just a pause so call still connects
+    const VoiceResponse = require('twilio').twiml.VoiceResponse;
+    const twiml = new VoiceResponse();
+    twiml.pause({ length: 1 });
     
     res.type('text/xml');
     res.send(twiml.toString());
@@ -1308,6 +1486,225 @@ router.delete('/my-numbers/:id', auth, async (req, res) => {
       error: 'Failed to release phone number',
       details: err.message 
     });
+  }
+});
+
+// Get whisper configuration for a phone number
+router.get('/my-numbers/:id/whisper', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Verify the phone number belongs to the user
+    const phoneNumbers = await UserPhoneNumber.findByUserId(userId);
+    const userNumber = phoneNumbers.find(num => num.id == id);
+    
+    if (!userNumber) {
+      return res.status(404).json({ error: 'Phone number not found' });
+    }
+
+    res.json({
+      success: true,
+      whisper: {
+        enabled: userNumber.whisper_enabled || false,
+        type: userNumber.whisper_type || 'say',
+        text: userNumber.whisper_text || null,
+        voice: userNumber.whisper_voice || 'alice',
+        language: userNumber.whisper_language || 'en-US',
+        media_url: userNumber.whisper_media_url || null
+      }
+    });
+
+  } catch (err) {
+    console.error('Error fetching whisper settings:', err);
+    res.status(500).json({ 
+      error: 'Failed to fetch whisper settings',
+      details: err.message 
+    });
+  }
+});
+
+// Update whisper configuration for a phone number
+router.put('/my-numbers/:id/whisper', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const {
+      whisper_enabled,
+      whisper_type,
+      whisper_text,
+      whisper_voice,
+      whisper_language,
+      whisper_media_url
+    } = req.body;
+
+    // Verify the phone number belongs to the user
+    const phoneNumbers = await UserPhoneNumber.findByUserId(userId);
+    const userNumber = phoneNumbers.find(num => num.id == id);
+    
+    if (!userNumber) {
+      return res.status(404).json({ error: 'Phone number not found' });
+    }
+
+    // Prepare update data
+    const updateData = {};
+    if (whisper_enabled !== undefined) updateData.whisper_enabled = !!whisper_enabled;
+    if (whisper_type !== undefined) {
+      if (['say', 'play'].includes(whisper_type.toLowerCase())) {
+        updateData.whisper_type = whisper_type.toLowerCase();
+      } else {
+        return res.status(400).json({ error: 'whisper_type must be "say" or "play"' });
+      }
+    }
+    if (whisper_text !== undefined) updateData.whisper_text = whisper_text;
+    if (whisper_voice !== undefined) updateData.whisper_voice = whisper_voice;
+    if (whisper_language !== undefined) updateData.whisper_language = whisper_language;
+    if (whisper_media_url !== undefined) updateData.whisper_media_url = whisper_media_url;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    // Update the whisper settings
+    const updated = await UserPhoneNumber.update(id, updateData);
+
+    if (updated) {
+      // Fetch updated number to return
+      const updatedNumber = await UserPhoneNumber.findById(id);
+      
+      res.json({
+        success: true,
+        message: 'Whisper settings updated successfully',
+        whisper: {
+          enabled: updatedNumber.whisper_enabled || false,
+          type: updatedNumber.whisper_type || 'say',
+          text: updatedNumber.whisper_text || null,
+          voice: updatedNumber.whisper_voice || 'alice',
+          language: updatedNumber.whisper_language || 'en-US',
+          media_url: updatedNumber.whisper_media_url || null
+        }
+      });
+    } else {
+      res.status(400).json({ error: 'Failed to update whisper settings' });
+    }
+
+  } catch (err) {
+    console.error('Error updating whisper settings:', err);
+    res.status(500).json({ 
+      error: 'Failed to update whisper settings',
+      details: err.message 
+    });
+  }
+});
+
+// Upload whisper audio file to database
+router.post('/my-numbers/:id/whisper/upload', auth, audioUpload.single('audio'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Verify the phone number belongs to the user
+    const phoneNumbers = await UserPhoneNumber.findByUserId(userId);
+    const userNumber = phoneNumbers.find(num => num.id == id);
+    
+    if (!userNumber) {
+      return res.status(404).json({ error: 'Phone number not found' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No audio file provided' });
+    }
+
+    // Store audio file in database as BLOB
+    const db = require('../config/database');
+    const audioBuffer = req.file.buffer;
+    const mimeType = req.file.mimetype || 'audio/webm';
+    const fileSize = audioBuffer.length;
+
+    console.log(`💾 Storing whisper audio in database: ${fileSize} bytes, type: ${mimeType}`);
+
+    // Insert into phone_number_whispers table
+    const result = await db.query(
+      `INSERT INTO phone_number_whispers 
+       (phone_number_id, mime, bytes, size_bytes, is_active) 
+       VALUES (?, ?, ?, ?, 1)`,
+      [id, mimeType, audioBuffer, fileSize]
+    );
+
+    const whisperId = result.insertId;
+
+    // Update user_phone_numbers to reference this whisper and enable whisper
+    const updateData = {
+      whisper_enabled: true,
+      whisper_type: 'play',
+      active_whisper_id: whisperId,
+      whisper_media_url: `${process.env.SERVER_URL}/api/twilio/whisper-audio/${whisperId}`
+    };
+
+    const updated = await UserPhoneNumber.update(id, updateData);
+
+    if (updated) {
+      console.log(`✅ Whisper audio stored in database with ID: ${whisperId}`);
+      res.json({
+        success: true,
+        message: 'Whisper audio uploaded successfully',
+        whisper_id: whisperId,
+        media_url: updateData.whisper_media_url,
+        whisper: {
+          enabled: true,
+          type: 'play',
+          media_url: updateData.whisper_media_url
+        }
+      });
+    } else {
+      res.status(400).json({ error: 'Failed to update whisper settings' });
+    }
+
+  } catch (err) {
+    console.error('Error uploading whisper audio:', err);
+    res.status(500).json({ 
+      error: 'Failed to upload whisper audio',
+      details: err.message 
+    });
+  }
+});
+
+// Serve whisper audio file from database
+// IMPORTANT: This endpoint must be publicly accessible (no auth) so Twilio can fetch it
+router.get('/whisper-audio/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`🎵 Whisper audio endpoint HIT - ID: ${id}`);
+    
+    const db = require('../config/database');
+
+    // Fetch audio from database
+    const rows = await db.query(
+      `SELECT mime, bytes, size_bytes FROM phone_number_whispers 
+       WHERE id = ? AND is_active = 1`,
+      [id]
+    );
+
+    if (!rows || rows.length === 0) {
+      console.log(`⚠️ Whisper audio not found for ID: ${id}`);
+      return res.status(404).send('Whisper audio not found');
+    }
+
+    const whisper = rows[0];
+    console.log(`✅ Serving whisper audio - Size: ${whisper.size_bytes} bytes, MIME: ${whisper.mime}`);
+    
+    // Set appropriate headers for audio streaming
+    res.setHeader('Content-Type', whisper.mime || 'audio/webm');
+    res.setHeader('Content-Length', whisper.size_bytes);
+    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+    res.setHeader('Accept-Ranges', 'bytes');
+    
+    // Twilio needs HTTPS and fast response - send the audio bytes
+    res.end(whisper.bytes);
+
+  } catch (err) {
+    console.error('❌ Error serving whisper audio:', err);
+    res.status(500).send('Server error');
   }
 });
 

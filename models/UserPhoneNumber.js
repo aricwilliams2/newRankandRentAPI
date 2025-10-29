@@ -15,6 +15,14 @@ class UserPhoneNumber {
         this.purchase_price_unit = data.purchase_price_unit;
         this.monthly_cost = data.monthly_cost;
         this.capabilities = data.capabilities;
+        // Whisper configuration fields
+        this.whisper_enabled = data.whisper_enabled !== undefined ? !!data.whisper_enabled : false;
+        this.whisper_type = data.whisper_type || 'say';
+        this.whisper_text = data.whisper_text;
+        this.whisper_voice = data.whisper_voice || 'alice';
+        this.whisper_language = data.whisper_language || 'en-US';
+        this.whisper_media_url = data.whisper_media_url;
+        this.active_whisper_id = data.active_whisper_id;
         this.created_at = data.created_at;
         this.updated_at = data.updated_at;
     }

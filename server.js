@@ -70,6 +70,8 @@ app.options('*', cors(corsOptions)); // handle preflight
 
 // Video routes handle serving videos from S3
 // app.use('/videos', express.static(path.join(__dirname, 'uploads')));
+// Serve whisper audio files if stored locally
+app.use('/uploads/whispers', express.static(path.join(__dirname, 'uploads', 'whispers')));
 
 // Video routes MUST come BEFORE the body parsers to avoid conflicts with multipart data
 app.use("/api/videos", videoRoutes);

@@ -153,6 +153,18 @@ const BrowserCallComponent = () => {
     }
   };
 
+  const sendDigit = (digit: string) => {
+    if (connection && isConnected) {
+      try {
+        connection.sendDigits(digit);
+        console.log(`🔢 Sent DTMF digit: ${digit}`);
+      } catch (error) {
+        console.error('Failed to send digit:', error);
+        setError(`Failed to send digit: ${error.message}`);
+      }
+    }
+  };
+
   return (
     <div style={{ padding: '20px', maxWidth: '500px' }}>
       <h2>🎙️ Browser Call</h2>
@@ -221,7 +233,7 @@ const BrowserCallComponent = () => {
           </button>
         </div>
       ) : (
-        // Active Call Controls
+        // Active Call Controls with Dialpad
         <div style={{ 
           backgroundColor: '#e8f5e8', 
           padding: '15px', 
@@ -229,7 +241,9 @@ const BrowserCallComponent = () => {
           textAlign: 'center'
         }}>
           <h3>📞 Connected to {toNumber}</h3>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+          
+          {/* Call Control Buttons */}
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '20px' }}>
             <button 
               onClick={toggleMute}
               style={{
@@ -238,7 +252,8 @@ const BrowserCallComponent = () => {
                 padding: '10px 20px',
                 border: 'none',
                 borderRadius: '5px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontSize: '14px'
               }}
             >
               {isMuted ? '🔇 Unmute' : '🎤 Mute'}
@@ -251,11 +266,94 @@ const BrowserCallComponent = () => {
                 padding: '10px 20px',
                 border: 'none',
                 borderRadius: '5px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontSize: '14px'
               }}
             >
               📞 Hang Up
             </button>
+          </div>
+
+          {/* Dialpad */}
+          <div style={{ marginTop: '20px' }}>
+            <h4 style={{ marginBottom: '15px' }}>🔢 Dialpad</h4>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(3, 1fr)', 
+              gap: '10px',
+              maxWidth: '300px',
+              margin: '0 auto'
+            }}>
+              {/* Dialpad Buttons */}
+              {[
+                ['1', ''], ['2', 'ABC'], ['3', 'DEF'],
+                ['4', 'GHI'], ['5', 'JKL'], ['6', 'MNO'],
+                ['7', 'PQRS'], ['8', 'TUV'], ['9', 'WXYZ'],
+                ['*', ''], ['0', '+'], ['#', '']
+              ].map(([digit, letters]) => (
+                <button
+                  key={digit}
+                  onClick={() => sendDigit(digit)}
+                  disabled={!isConnected}
+                  style={{
+                    backgroundColor: '#fff',
+                    color: '#333',
+                    padding: '20px 10px',
+                    border: '2px solid #ccc',
+                    borderRadius: '8px',
+                    cursor: isConnected ? 'pointer' : 'not-allowed',
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    transition: 'all 0.2s',
+                    opacity: isConnected ? 1 : 0.5,
+                    minHeight: '60px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  onMouseDown={(e) => {
+                    if (isConnected) {
+                      e.currentTarget.style.transform = 'scale(0.95)';
+                      e.currentTarget.style.backgroundColor = '#e0e0e0';
+                    }
+                  }}
+                  onMouseUp={(e) => {
+                    if (isConnected) {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.backgroundColor = '#fff';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (isConnected) {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.backgroundColor = '#fff';
+                    }
+                  }}
+                >
+                  <span>{digit}</span>
+                  {letters && (
+                    <span style={{ 
+                      fontSize: '10px', 
+                      color: '#666',
+                      marginTop: '2px',
+                      fontWeight: 'normal'
+                    }}>
+                      {letters}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <p style={{ 
+              fontSize: '12px', 
+              color: '#666', 
+              marginTop: '10px',
+              fontStyle: 'italic'
+            }}>
+              Tap buttons to send DTMF tones to the call
+            </p>
           </div>
         </div>
       )}
